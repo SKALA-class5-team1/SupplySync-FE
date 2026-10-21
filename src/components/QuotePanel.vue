@@ -58,7 +58,7 @@ async function confirmDecision(q: QuoteSummary) {
       <div class="spread">
         <div>
           <div class="small muted num">{{ q.quote_id }}</div>
-          <h2>{{ q.config ?? '견적' }}</h2>
+          <h2>{{ [q.model_id, ...(q.options ?? [])].filter(Boolean).join(' + ') || '견적' }}</h2>
         </div>
         <StatusChip :label="label(QUOTE_LABEL, q.status)" :cls="quoteChip(q.status)" />
       </div>
@@ -70,16 +70,22 @@ async function confirmDecision(q: QuoteSummary) {
       </div>
 
       <dl class="kv">
-        <div><dt>납기</dt><dd class="num">{{ q.delivery_weeks != null ? `${q.delivery_weeks}주` : '–' }}</dd></div>
+        <div><dt>시작품</dt><dd class="num">{{ q.sample_qty != null ? `${q.sample_qty.toLocaleString('ko-KR')}개` : '–' }}</dd></div>
+        <div><dt>시작품 납기</dt><dd class="num">{{ q.sample_due_date ?? '–' }}</dd></div>
         <div><dt>유효기간</dt><dd class="num">{{ q.valid_until ?? '–' }}</dd></div>
       </dl>
 
-      <div v-if="q.yearly_prices?.length">
+      <div v-if="q.price_by_year?.length">
         <h3 class="small" style="margin-bottom:8px">연도별 단가 <span class="muted">· 연 3% 인하 기준</span></h3>
         <div class="tw">
           <table>
-            <thead><tr><th v-for="y in q.yearly_prices" :key="y.year" class="r">{{ y.year }}년차</th></tr></thead>
-            <tbody><tr><td v-for="y in q.yearly_prices" :key="y.year" class="r num">{{ won(y.unit_price_krw) }}</td></tr></tbody>
+            <thead><tr><th v-for="y in q.price_by_year" :key="y.year" class="r">{{ y.year }}년차</th></tr></thead>
+            <tbody>
+              <tr><td v-for="y in q.price_by_year" :key="y.year" class="r num">{{ won(y.unit_price_krw) }}</td></tr>
+              <tr v-if="manager && q.price_by_year.some((y) => y.margin_pct != null)">
+                <td v-for="y in q.price_by_year" :key="y.year" class="r num muted small">마진 {{ y.margin_pct?.toFixed(1) ?? '–' }}%</td>
+              </tr>
+            </tbody>
           </table>
         </div>
       </div>
@@ -87,16 +93,20 @@ async function confirmDecision(q: QuoteSummary) {
       <div v-if="q.conditions?.length">
         <h3 class="small" style="margin-bottom:8px">조건</h3>
         <ul class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
-          <li v-for="(c, i) in q.conditions" :key="i">{{ c }}</li>
+          <li v-for="(c, i) in q.conditions" :key="i">{{ c.text }}<span v-if="c.ref" class="muted"> ({{ c.ref }})</span></li>
         </ul>
       </div>
 
       <!-- 원가와 마진은 담당자에게만 보인다 -->
-      <div v-if="manager && q.cost_breakdown?.length" class="internal">
-        <h3 class="small" style="margin-bottom:8px">원가 구성 <span class="muted">· 고객에게 보이지 않음</span></h3>
+      <div v-if="manager && (q.parts_cost_krw != null || q.checks?.length)" class="internal">
+        <h3 class="small" style="margin-bottom:8px">원가·검토 결과 <span class="muted">· 고객에게 보이지 않음</span></h3>
         <dl class="cost">
-          <div v-for="c in q.cost_breakdown" :key="c.label"><dt>{{ c.label }}</dt><dd class="num">{{ won(c.amount_krw) }}</dd></div>
-          <div v-if="q.margin_pct != null"><dt>마진</dt><dd class="num">{{ q.margin_pct.toFixed(1) }}%</dd></div>
+          <div v-if="q.parts_cost_krw != null"><dt>부품 원가 합계</dt><dd class="num">{{ won(q.parts_cost_krw) }}</dd></div>
+          <div v-if="q.margin_pct != null"><dt>마진 (1년차)</dt><dd class="num">{{ q.margin_pct.toFixed(1) }}%</dd></div>
+          <div v-for="c in q.checks ?? []" :key="c.rule">
+            <dt>{{ c.label ?? c.rule }} <span class="muted small">{{ c.criterion }}</span></dt>
+            <dd class="num">{{ c.value }} · <b :style="{ color: c.result === 'PASS' ? 'inherit' : 'var(--danger, #c0392b)' }">{{ c.result }}</b></dd>
+          </div>
         </dl>
       </div>
 

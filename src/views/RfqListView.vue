@@ -55,12 +55,13 @@ onMounted(async () => {
       </div>
       <div v-else class="tw">
         <table>
-          <thead><tr><th>RFQ 번호</th><th>품목</th><th>접수일</th><th>상태</th></tr></thead>
+          <thead><tr><th>RFQ 번호</th><th>고객사</th><th>품목</th><th>접수일</th><th>상태</th></tr></thead>
           <tbody>
             <tr v-for="r in rows" :key="r.rfq_id" class="click" @click="$router.push(`/rfqs/${r.rfq_id}`)">
-              <td class="num">{{ r.rfq_number ?? r.rfq_id }}</td>
-              <td>{{ r.title ?? '–' }}</td>
-              <td class="num muted">{{ r.created_at ?? '–' }}</td>
+              <td class="num">{{ r.rfq_number }}</td>
+              <td>{{ r.customer_company ?? '–' }}</td>
+              <td>{{ r.item ?? '–' }}</td>
+              <td class="num muted">{{ (r.received_at ?? '').slice(0, 10) || '–' }}</td>
               <td><StatusChip :label="label(RFQ_LABEL, r.status)" :cls="rfqChip(r.status)" /></td>
             </tr>
           </tbody>

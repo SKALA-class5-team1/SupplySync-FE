@@ -35,13 +35,13 @@ export const STEP_LABEL: Record<string, string> = {
   APPROVAL: '승인', REVALIDATION: '재검증', REGISTRATION: '등록',
 }
 
-export const SEVERITY_LABEL: Record<string, string> = { HIGH: '높음', MEDIUM: '보통', LOW: '낮음' }
+export const SEVERITY_LABEL: Record<string, string> = { HIGH: '높음', MED: '보통', MEDIUM: '보통', LOW: '낮음' }
 
 export const label = (map: Record<string, string>, key: string | undefined | null) => (key ? (map[key] ?? key) : '–')
 export const taskChip = (s?: string) => TASK_CHIP[s ?? ''] ?? 'submitted'
 export const quoteChip = (s?: string) => QUOTE_CHIP[s ?? ''] ?? 'submitted'
 export const rfqChip = (s?: string) => RFQ_CHIP[s ?? ''] ?? 'submitted'
-export const severityChip = (s?: string) => (s === 'HIGH' ? 'HIGH' : s === 'MEDIUM' ? 'MEDIUM' : 'LOW')
+export const severityChip = (s?: string) => (s === 'HIGH' ? 'HIGH' : s === 'MED' || s === 'MEDIUM' ? 'MEDIUM' : 'LOW')
 
 // 화면 전체 흐름 (접수 → 검토 → 견적 → 완료)
 export function lifecycleIndex(rfqStatus?: string, hasDraft = false): number {
