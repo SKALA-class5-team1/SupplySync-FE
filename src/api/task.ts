@@ -1,6 +1,7 @@
-import { ApiError, authHeaders } from './client'
+import { ApiError, request } from './client'
+import { mockEnabled, mockStream } from '../mock'
+import { session } from '../session'
 import type { StepName, TaskStatus } from './types'
-import { request } from './client'
 
 export const TASK_EVENTS = [
   'STEP_START', 'STEP_END', 'TOOL_START', 'TOOL_END', 'TOKEN',
@@ -23,7 +24,6 @@ export interface TaskState {
 
 const TERMINAL: TaskEventName[] = ['DONE', 'FAILED']
 
-// 끊겼을 때 현재 상태 복구 (지난 이벤트는 다시 받을 수 없다)
 export function getTask(taskId: string): Promise<TaskState> {
   return request<TaskState>('GET', `/api/ai/tasks/${encodeURIComponent(taskId)}`)
 }
@@ -31,15 +31,17 @@ export function getTask(taskId: string): Promise<TaskState> {
 /**
  * GET /api/ai/tasks/{task_id}/stream 을 fetch로 읽는다 (Authorization 헤더 사용).
  * 반환 함수를 호출하면 스트림을 중단한다.
+ * 'terminal': DONE/FAILED 후 닫힘. 'closed': 그 전에 닫힘 (5분 제한, 토큰 만료, 네트워크 오류 등)
  */
 export function openTaskStream(
   taskId: string,
   handlers: {
     onEvent: (e: TaskEvent) => void
-    // 'terminal': DONE/FAILED를 받고 닫힘. 'closed': 그 전에 닫힘(5분 제한, 토큰 만료, 네트워크 오류 등)
     onDisconnect: (reason: 'terminal' | 'closed') => void
   },
 ): () => void {
+  if (mockEnabled()) return mockStream(taskId, session.user, handlers)
+
   const controller = new AbortController()
   const url = `/api/ai/tasks/${encodeURIComponent(taskId)}/stream`
 
@@ -47,7 +49,10 @@ export function openTaskStream(
     let finished = false
     try {
       const res = await fetch(url, {
-        headers: { Accept: 'text/event-stream', ...authHeaders() },
+        headers: {
+          Accept: 'text/event-stream',
+          ...(session.token ? { Authorization: `Bearer ${session.token}` } : {}),
+        },
         signal: controller.signal,
       })
       if (!res.ok || !res.body) throw new ApiError(res.status, null)

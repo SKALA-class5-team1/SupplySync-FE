@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { session, saveSession, isManager } from './session'
+import { toasts } from './toast'
 
 const router = useRouter()
+const route = useRoute()
+const user = computed(() => session.user)
+const onLogin = computed(() => route.path === '/login')
 
 function logout() {
   saveSession(null, null)
@@ -11,22 +16,29 @@ function logout() {
 </script>
 
 <template>
-  <header class="top">
-    <RouterLink class="brand" to="/rfqs">SupplySync</RouterLink>
-    <div v-if="session.user" class="who">
-      <span>{{ session.user.name }} · {{ session.user.company_name }} · {{ isManager() ? '담당자' : '고객' }}</span>
-      <button class="link" @click="logout">로그아웃</button>
+  <header v-if="!onLogin" class="top">
+    <div class="top-in">
+      <RouterLink class="brand" to="/rfqs"><i></i>SupplySync</RouterLink>
+      <nav v-if="user" class="nav" aria-label="주 메뉴">
+        <RouterLink to="/rfqs">메인</RouterLink>
+        <RouterLink v-if="!isManager()" to="/rfqs/new">RFQ 등록</RouterLink>
+      </nav>
+      <div v-if="user" class="who">
+        <span><b>{{ user.name }}</b> · {{ user.company_name }} · {{ isManager() ? '담당자' : '고객' }}</span>
+        <button class="btn sm" @click="logout">로그아웃</button>
+      </div>
     </div>
   </header>
-  <main class="wrap">
+
+  <main class="wrap" :style="onLogin ? 'padding-top:40px' : ''">
     <RouterView />
   </main>
-</template>
 
-<style scoped>
-.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface); border-bottom: 1px solid var(--line); padding: 12px 16px; }
-.brand { font-weight: 700; color: var(--ink); text-decoration: none; }
-.who { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
-.link { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0; }
-.wrap { max-width: 960px; margin: 0 auto; padding: 20px 16px 40px; }
-</style>
+  <footer v-if="!onLogin" class="wrap" style="padding-top:0">
+    <p class="foot">데모 데이터: 가상의 회사와 수치입니다. 백엔드 연결 전에는 목 데이터로 동작합니다.</p>
+  </footer>
+
+  <div class="toasts" aria-live="polite">
+    <div v-for="t in toasts" :key="t.id" class="toast on" :class="t.kind">{{ t.text }}</div>
+  </div>
+</template>
