@@ -9,13 +9,13 @@ import StatusChip from '../components/StatusChip.vue'
 import Track from '../components/Track.vue'
 import ReviewPanel from '../components/ReviewPanel.vue'
 import QuotePanel from '../components/QuotePanel.vue'
-import type { QuoteSummary, Review, RfqSummary } from '../api/types'
+import type { QuoteSummary, Review, RfqDetail, RfqSummary } from '../api/types'
 
 const props = defineProps<{ rfqId: string }>()
 const route = useRoute()
 
 const list = ref<RfqSummary[]>([])
-const rfq = ref<RfqSummary | null>(null)
+const rfq = ref<RfqDetail | null>(null)
 const review = ref<Review | null>(null)
 const quotes = ref<QuoteSummary[]>([])
 const loading = ref(true)
@@ -26,7 +26,7 @@ const view = computed<'customer' | 'staff'>(() => {
   if (!isManager()) return 'customer'
   return route.query.view === 'customer' ? 'customer' : 'staff'
 })
-const taskId = computed(() => (rfq.value?.task_id as string | undefined) ?? '')
+const taskId = computed(() => rfq.value?.latest_task_id ?? '')
 const draftCount = computed(() => quotes.value.filter((q) => q.status === 'DRAFT').length)
 const idx = computed(() => lifecycleIndex(rfq.value?.status, draftCount.value > 0))
 
@@ -72,9 +72,9 @@ watch(() => props.rfqId, load, { immediate: true })
         <h2>{{ isManager() ? '접수된 RFQ' : '내 RFQ' }}</h2>
         <ul class="items">
           <li v-for="r in list" :key="r.rfq_id">
-            <RouterLink class="item" :to="`/rfqs/${r.rfq_id}${route.query.view ? '?view=' + route.query.view : ''}`" :aria-current="r.rfq_id === rfqId ? 'true' : undefined" style="text-decoration:none;color:inherit">
-              <span class="t">{{ r.title ?? r.rfq_id }}</span>
-              <span class="m"><span class="num">{{ r.rfq_number ?? r.rfq_id }}</span><StatusChip :label="label(RFQ_LABEL, r.status)" :cls="rfqChip(r.status)" /></span>
+            <RouterLink class="item" :to="`/rfqs/${r.rfq_id}${route.query.view ? '?view=' + route.query.view : ''}`" :aria-current="String(r.rfq_id) === String(rfqId) ? 'true' : undefined" style="text-decoration:none;color:inherit">
+              <span class="t">{{ r.item ?? r.rfq_number }}</span>
+              <span class="m"><span class="num">{{ r.rfq_number }}</span><StatusChip :label="label(RFQ_LABEL, r.status)" :cls="rfqChip(r.status)" /></span>
             </RouterLink>
           </li>
           <li v-if="!list.length" class="muted small">표시할 RFQ가 없습니다.</li>
@@ -93,8 +93,8 @@ watch(() => props.rfqId, load, { immediate: true })
           <div class="card stack">
             <div class="spread">
               <div>
-                <div class="small muted num">{{ rfq.rfq_number ?? rfq.rfq_id }} · 접수 {{ rfq.created_at ?? '–' }}</div>
-                <h2 style="font-size:18px;margin-top:2px">{{ rfq.title ?? '견적 요청' }}</h2>
+                <div class="small muted num">{{ rfq.rfq_number }} · {{ rfq.customer_company ?? '' }} · 접수 {{ (rfq.received_at ?? '').slice(0, 10) || '–' }}</div>
+                <h2 style="font-size:18px;margin-top:2px">{{ rfq.item ?? '견적 요청' }}</h2>
               </div>
               <div class="row">
                 <StatusChip :label="label(RFQ_LABEL, rfq.status)" :cls="rfqChip(rfq.status)" />

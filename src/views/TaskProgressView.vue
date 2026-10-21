@@ -10,7 +10,7 @@ import StatusChip from '../components/StatusChip.vue'
 const props = defineProps<{ taskId: string; rfq?: string }>()
 
 const MAX_RECONNECT = 3
-const TERMINAL_STATUS = ['DONE', 'FAILED']
+const TERMINAL_STATUS = ['DONE', 'FAILED', 'ON_HOLD']
 // 업무상 종료 이벤트: 보류·실패·실행 종료는 담당자 조치 전까지 더 이벤트가 오지 않는다
 const TERMINAL_EVENTS = ['DONE', 'FAILED', 'RUN_ON_HOLD', 'RUN_END', 'RUN_FAILED']
 const EVENT_LABEL: Record<string, string> = {
@@ -34,6 +34,14 @@ let stop: (() => void) | null = null
 // 대안 분석은 부품이 부족할 때만 나오므로, 실제로 들어왔거나 진행 중일 때만 보여 준다
 const steps = computed(() => STEP_ORDER.filter((s) => s !== 'ALTERNATIVE_ANALYSIS' || doneSteps.value.includes(s) || activeStep.value === s))
 const needsApproval = computed(() => events.value.some((e) => e.name === 'APPROVAL_REQUIRED'))
+const failedReason = computed(() => {
+  if (task.value?.status === 'ON_HOLD') return '업무상 보류되었습니다. 담당자 조치 후 다시 진행됩니다.'
+  if (task.value?.status === 'FAILED' || events.value.some((e) => e.name === 'FAILED' || e.name === 'RUN_FAILED')) {
+    return task.value?.failure_reason || events.value.filter((e) => e.name === 'FAILED' || e.name === 'RUN_FAILED').map((e) => e.text).pop() || '처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+  }
+  if (events.value.some((e) => e.name === 'RUN_ON_HOLD')) return '업무상 보류되었습니다. 담당자 조치 후 다시 진행됩니다.'
+  return ''
+})
 const needsClarify = computed(() => events.value.some((e) => e.name === 'CLARIFICATION_REQUIRED'))
 
 function stepOf(data: unknown): string {
@@ -59,8 +67,8 @@ function onEvent(e: TaskEvent) {
     if (activeStep.value === s) activeStep.value = ''
   }
   if (TERMINAL_EVENTS.includes(e.event)) finished.value = true
-  // 반려도 DONE으로 끝난다. 결과는 DONE의 outcome으로 구분한다
-  if (e.event === 'DONE' && e.data && typeof e.data === 'object' && 'outcome' in e.data) {
+  // 반려도 정상 종료다. 결과는 DONE/RUN_END의 outcome으로 구분한다
+  if ((e.event === 'DONE' || e.event === 'RUN_END') && e.data && typeof e.data === 'object' && 'outcome' in e.data) {
     outcome.value = String((e.data as { outcome: string }).outcome)
   }
   events.value.push({ at: new Date().toTimeString().slice(0, 8), name: e.event, text: describe(e) })
@@ -160,6 +168,10 @@ onBeforeUnmount(() => stop?.())
 
     <div v-if="finished && outcome && OUTCOME_LABEL[outcome]" class="notice" style="margin-bottom:16px">
       <b>{{ OUTCOME_LABEL[outcome] }}</b>
+    </div>
+    <div v-else-if="failedReason" class="notice warn" style="margin-bottom:16px">
+      <b>작업이 중단되었습니다</b>
+      <p class="small muted" style="margin-top:2px">{{ failedReason }}</p>
     </div>
 
     <section class="card" style="margin-bottom:16px">
