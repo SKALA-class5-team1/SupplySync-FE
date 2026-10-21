@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SupplySync 백엔드 연동 현황 (2차)</title>
+<style>
+  :root { color-scheme: light; --bg:#eef1f5; --surface:#fff; --ink:#1a2433; --muted:#56637a; --line:#d5dce6; --accent:#22385e; --ok:#2e6a58; --warn:#8a6d2e; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --bg:#0e1420; --surface:#161f2e; --ink:#e4e9f2; --muted:#a3aebf; --line:#2a364a; --accent:#9db3de; --ok:#7cc4ae; --warn:#d8b56a; } }
+  :root[data-theme="dark"] { color-scheme: dark; --bg:#0e1420; --surface:#161f2e; --ink:#e4e9f2; --muted:#a3aebf; --line:#2a364a; --accent:#9db3de; --ok:#7cc4ae; --warn:#d8b56a; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Apple SD 산돌고딕 Neo","Apple SD Gothic Neo",sans-serif; line-height:1.6; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  h2 { font-size:17px; margin:0 0 10px; color:var(--accent); }
+  .meta { color:var(--muted); margin:0 0 20px; font-size:13px; }
+  section { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:14px; }
+  .wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:13px; }
+  code { font-size:12.5px; overflow-wrap:anywhere; }
+  .tag { display:inline-block; font-size:12px; font-weight:600; padding:1px 8px; border-radius:999px; white-space:nowrap; }
+  .done { color:var(--ok); background:color-mix(in srgb, var(--ok) 14%, transparent); }
+  .wait { color:var(--warn); background:color-mix(in srgb, var(--warn) 14%, transparent); }
+  ol, ul { margin:0; padding-left:20px; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>SupplySync 백엔드 연동 현황 (2차)</h1>
+  <p class="meta">프로젝트: /Users/jh/projects/supplysync · Vue 3 + TypeScript + Vite + vue-router · npm run build 통과 · 백엔드(localhost:8080) 미기동으로 실제 호출은 아직 검증하지 못함</p>
+
+  <section>
+    <h2>1. 2차 명세 반영 (snake_case, multipart, quote_id 기준)</h2>
+    <div class="wrap"><table>
+      <thead><tr><th>영역</th><th>파일</th><th>상태</th></tr></thead>
+      <tbody>
+        <tr><td>API 타입 (snake_case, 상태 enum)</td><td><code>src/api/types.ts</code></td><td><span class="tag done">완료</span></td></tr>
+        <tr><td>오류 처리 (401 → 로그인, 403/404/409 안내 문구)</td><td><code>src/api/client.ts</code>, <code>src/labels.ts</code></td><td><span class="tag done">완료</span></td></tr>
+        <tr><td>로그인 <code>POST /api/auth/login</code>, 내 정보 <code>GET /api/me</code></td><td><code>src/api/auth.ts</code>, <code>src/views/LoginView.vue</code></td><td><span class="tag done">완료 (백엔드는 스텁)</span></td></tr>
+        <tr><td>RFQ 접수 <code>POST /api/rfqs</code> multipart (file .md, rfq_number)</td><td><code>src/api/rfq.ts</code>, <code>src/views/RfqNewView.vue</code></td><td><span class="tag done">완료</span></td></tr>
+        <tr><td>목록 <code>GET /api/rfqs</code>, 상세 <code>GET /api/rfqs/{id}</code></td><td><code>src/views/RfqListView.vue</code>, <code>src/views/RfqDetailView.vue</code></td><td><span class="tag done">완료</span></td></tr>
+        <tr><td>담당자 분석 <code>GET /api/rfqs/{id}/analysis</code></td><td><code>src/views/RfqDetailView.vue</code></td><td><span class="tag wait">JSON 그대로 표시 (review 필드별 화면은 미완)</span></td></tr>
+        <tr><td>고객 견적 <code>GET /api/rfqs/{id}/quotes</code></td><td><code>src/views/RfqDetailView.vue</code></td><td><span class="tag wait">JSON 그대로 표시 (필드별 화면은 미완)</span></td></tr>
+        <tr><td>진행 SSE (STEP_START/END, CLARIFICATION_REQUIRED 등) + 끊김 복구 <code>GET /api/ai/tasks/{id}</code></td><td><code>src/api/task.ts</code>, <code>src/views/TaskProgressView.vue</code></td><td><span class="tag done">완료 (단계 필드명 임시)</span></td></tr>
+        <tr><td>승인/반려 <code>POST .../approval</code> {quote_id, decision, reason}</td><td><code>src/api/ai.ts</code>, <code>src/views/RfqDetailView.vue</code></td><td><span class="tag done">완료 (409는 새로고침 안내)</span></td></tr>
+        <tr><td>요구 확인 <code>POST .../confirmation</code></td><td><code>src/api/ai.ts</code></td><td><span class="tag wait">함수만 구현, 화면 없음</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>2. 임시로 둔 가정 (백엔드 확인 필요)</h2>
+    <ol>
+      <li>승인 화면은 RFQ 상세 응답의 <code>task_id</code>를 쓴다. 응답에 없으면 승인 버튼이 비활성화된다.</li>
+      <li>STEP_START/STEP_END 데이터는 <code>step</code> 또는 <code>name</code> 필드에 단계명이 있다고 본다.</li>
+      <li>분석 결과(<code>review</code>)와 견적(<code>quotes[]</code>) 내부 필드명은 모른다. 지금은 JSON 그대로 보여 준다.</li>
+      <li>RFQ 목록 응답은 배열이고, 각 항목에 <code>rfq_id</code>, <code>rfq_number</code>, <code>status</code>가 있다고 본다.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>3. 아직 못 한 것</h2>
+    <ul>
+      <li>분석 결과 화면: 이슈 7건, 가정, 고객 질의서, 계약 리스크, 부족 부품, 대안 4종(추천 표시)을 항목별로 나누어 보여 주기</li>
+      <li>고객 견적 화면: 단가·연도별 단가·납기·유효기간·조건을 표로 정리</li>
+      <li>요구 확인(담당자) 화면: assumptions 입력 후 제출</li>
+      <li>승인 더블 클릭 방지 (현재는 버튼 비활성화만 함)</li>
+      <li>실제 백엔드 연동 검증 (Swagger JSON <code>http://localhost:8080/v3/api-docs/1-web</code> 확인 후 DTO 타입 생성)</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>4. 확인 방법</h2>
+    <ul>
+      <li><code>cd /Users/jh/projects/supplysync && npm install && npm run dev</code></li>
+      <li>백엔드 기동: <code>SPRING_PROFILES_ACTIVE=demo ./gradlew bootRun</code></li>
+      <li><code>http://localhost:5173/login</code>에서 데모 계정 <code>hb_buyer01</code>(고객) 또는 <code>ds_sales01</code>(담당자), 비밀번호 <code>demo1234</code></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>5. 결정이 필요한 것</h2>
+    <ol>
+      <li>Swagger JSON 공유 가능 여부 (분석·견적 DTO 타입 자동 생성)</li>
+      <li>SSE 인증은 현재 fetch 스트림으로 해결했다. <code>@microsoft/fetch-event-source</code>로 바꿀지 여부</li>
+      <li>CORS 대신 Vite 프록시를 계속 쓸지 여부 (현재 프록시 사용)</li>
+    </ol>
+  </section>
+</main>
+</body>
+</html>

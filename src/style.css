@@ -1,0 +1,41 @@
+:root {
+  color-scheme: light;
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --ink: #1a2433;
+  --muted: #56637a;
+  --line: #d5dce6;
+  --accent: #22385e;
+  --accent-ink: #ffffff;
+  --err: #8a3b3b;
+  font-family: 'Apple SD 산돌고딕 Neo', 'Apple SD Gothic Neo', sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0e1420;
+    --surface: #161f2e;
+    --ink: #e4e9f2;
+    --muted: #a3aebf;
+    --line: #2a364a;
+    --accent: #9db3de;
+    --accent-ink: #0e1420;
+    --err: #e0a4a4;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Apple SD 산돌고딕 Neo', 'Apple SD Gothic Neo', sans-serif;
+  line-height: 1.55;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SupplySync 발표</title>
+<style>
+  :root { color-scheme: light; --bg:#eef1f5; --surface:#ffffff; --ink:#1a2433; --muted:#56637a; --line:#d5dce6; --accent:#22385e; --accent-soft:#e4eaf3; --slate:#5b6b86; --ok:#2e6a58; --warn:#8a6d2e; --mark:#9aa6b8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --bg:#0e1420; --surface:#161f2e; --ink:#e4e9f2; --muted:#a3aebf; --line:#2a364a; --accent:#9db3de; --accent-soft:#1e2c44; --slate:#7a8bA8; --ok:#7cc4ae; --warn:#d8b56a; --mark:#5a6880; } }
+  :root[data-theme="dark"] { color-scheme: dark; --bg:#0e1420; --surface:#161f2e; --ink:#e4e9f2; --muted:#a3aebf; --line:#2a364a; --accent:#9db3de; --accent-soft:#1e2c44; --slate:#7a8bA8; --ok:#7cc4ae; --warn:#d8b56a; --mark:#5a6880; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:"Apple SD 산돌고딕 Neo","Apple SD Gothic Neo",sans-serif; overflow:hidden; }
+  #deck { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  #stage { width:1280px; height:720px; position:relative; transform-origin:center center; }
+  .slide { position:absolute; inset:0; padding:64px 80px; background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:0 10px 40px rgba(20,32,51,.10); display:none; flex-direction:column; gap:22px; overflow:hidden; }
+  .slide.on { display:flex; }
+  .kicker { font-size:15px; letter-spacing:.08em; color:var(--slate); font-weight:600; }
+  h1 { font-size:46px; line-height:1.2; margin:0; letter-spacing:-.01em; text-wrap:balance; }
+  h2 { font-size:34px; line-height:1.25; margin:0; text-wrap:balance; }
+  p, li { font-size:20px; line-height:1.55; margin:0; }
+  ul { margin:0; padding-left:24px; display:flex; flex-direction:column; gap:8px; }
+  .muted { color:var(--muted); }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:28px; min-height:0; }
+  .card { border:1px solid var(--line); border-radius:12px; padding:20px 22px; display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .big { font-size:54px; font-weight:700; color:var(--accent); line-height:1.1; font-variant-numeric:tabular-nums; }
+  .label { font-size:15px; color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:18px; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:16px; }
+  .flow { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .node { border:1.5px solid var(--accent); background:var(--accent-soft); border-radius:10px; padding:12px 16px; font-size:18px; font-weight:600; }
+  .node small { display:block; font-weight:400; font-size:14px; color:var(--muted); }
+  .arrow { color:var(--slate); font-size:22px; }
+  .tag { display:inline-block; font-size:14px; font-weight:600; padding:2px 10px; border-radius:999px; background:var(--accent-soft); color:var(--accent); }
+  .warn { color:var(--warn); }
+  .note { font-size:15px; color:var(--muted); }
+  .foot { position:absolute; left:80px; right:80px; bottom:24px; display:flex; justify-content:space-between; font-size:13px; color:var(--muted); }
+  .end { align-items:center; justify-content:center; text-align:center; }
+  #nav { position:fixed; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:center; font-size:14px; color:var(--muted); background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:6px 12px; }
+  #nav button { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:8px; padding:4px 12px; cursor:pointer; font:inherit; }
+  #nav button:disabled { opacity:.4; cursor:default; }
+</style>
+</head>
+<body>
+<div id="deck"><div id="stage">
+
+<section class="slide on">
+  <div class="kicker">SUPPLYSYNC · AI 견적 에이전트</div>
+  <h1>RFQ 견적 회신을<br>한 흐름으로 묶는다</h1>
+  <p class="muted">사양 검토 · 재고 확인 · 승인을 부서별 순차 진행에서 한 번에 검토하는 구조로 바꿉니다.</p>
+  <div class="foot"><span>발표 2026</span><span>[발표자 · 팀명 확인]</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">1 · 문제와 아이템</div>
+  <h2>견적 회신이 느린 이유: 순차 진행</h2>
+  <div class="cols">
+    <div class="card">
+      <div class="label">사양 검토 → 재고 확인 → 승인</div>
+      <p>각 부서가 앞 단계가 끝나야 시작합니다. 한 건이 여러 부서를 돌면서 회신이 늦어집니다.</p>
+      <p class="note">Pain point 출처와 수치: [확인 필요]</p>
+    </div>
+    <div class="card">
+      <div class="label">기존 서비스(CPQ 등)와의 차이</div>
+      <ul>
+        <li>CPQ: 정해진 규칙으로 구성과 가격 계산</li>
+        <li>SupplySync: 요청서 원문을 읽고 빠진 값·이상값을 찾고, 재고가 모자라면 대체 부품 제안</li>
+        <li>판단 근거를 사내 문서 원문으로 인용</li>
+      </ul>
+    </div>
+  </div>
+  <p><b>대상(B2B)</b> · 자동차 부품 공급사의 영업·구매 담당자, 발주하는 완성차 구매 담당자</p>
+  <div class="foot"><span>SupplySync</span><span>2</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">2 · 데모 시나리오</div>
+  <h2>한별모터스 RFQ 한 건 (가상 데이터)</h2>
+  <div class="cols">
+    <div class="card">
+      <div class="label">요청</div>
+      <p>전기차 워터펌프(EWP 12V) · 연간 120,000개 × 6년 · 시작품 2,000개</p>
+      <p>유량 22 · 온도 120℃ · 방수 IP6K9K · 목표 단가 38,000원</p>
+    </div>
+    <div class="card">
+      <div class="label">결과</div>
+      <p><b>EWP-12-B + 고온 옵션(OPT-HT) + 방수 옵션(OPT-IP9K)</b></p>
+      <p>단가 37,300원, 목표가 이내</p>
+    </div>
+  </div>
+  <div class="foot"><span>SupplySync</span><span>3</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">2 · 데모 핵심 수치</div>
+  <h2>부족 재고를 대체 칩으로 메운다</h2>
+  <div class="cols">
+    <div class="card">
+      <div class="label">고온용 제어칩(P-MCU-G1)</div>
+      <div class="big">500개 부족</div>
+      <p>재고 9,000 − 배정 7,500 = 가용 1,500, 시작품 2,000개 필요. 입고(2027-01-20)도 시작품 납기(2026-12-15)보다 늦음.</p>
+    </div>
+    <div class="card">
+      <div class="label">대체 칩(P-MCU-G1-ALT) 추천</div>
+      <div class="big">150,000원</div>
+      <p>500개 × 300원 추가 원가, 검증 2주. 가용 3,000개로 납기 충족.</p>
+    </div>
+  </div>
+  <p class="note">검증 이슈 7건(HIGH 1, MED 6)을 원문 조항에 연결해 담당자 확인을 요청합니다.</p>
+  <div class="foot"><span>SupplySync</span><span>4</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">3 · 전체 아키텍처</div>
+  <h2>구성도</h2>
+  <div class="flow">
+    <div class="node">브라우저<small>Vue · 고객/담당자 화면</small></div><span class="arrow">→ REST · SSE</span>
+    <div class="node">Spring Boot<small>/api · /internal</small></div><span class="arrow">→ 작업 전달</span>
+    <div class="node">Agent<small>SG1~SG4 그래프</small></div>
+  </div>
+  <div class="flow">
+    <div class="node">business-mcp<small>업무 데이터 조회·변경</small></div><span class="arrow">·</span>
+    <div class="node">rag-mcp<small>사내 문서 검색·원문</small></div><span class="arrow">→</span>
+    <div class="node">PostgreSQL<small>업무 데이터 7개 · pgvector 청크 22개</small></div>
+  </div>
+  <p class="note">[확인] 실제 구성도와 맞는지, 그림 1(구성도)·그림 2(논리 구조)로 나눌지 결정</p>
+  <div class="foot"><span>SupplySync</span><span>5</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">3 · 신뢰 경계와 품질</div>
+  <h2>신뢰 경계</h2>
+  <div class="cols">
+    <div class="card">
+      <div class="label">경계 안쪽</div>
+      <ul>
+        <li>Spring Boot: JWT 검증, 역할과 회사 소속 검사</li>
+        <li>다른 회사 자료는 404로 존재를 숨김</li>
+        <li>Agent의 내부 호출은 INTERNAL 키로만 허용</li>
+        <li>MCP 쓰기는 백엔드를 거쳐서만 실행</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="label">ISO/IEC 25010 대응 (요약)</div>
+      <ul>
+        <li>기능 적합성: 숫자는 코드가 계산, LLM은 문구만</li>
+        <li>신뢰성: 작업 상태 저장, 끊김 시 상태 조회로 복구</li>
+        <li>보안성: 역할 검사, 내부 키 분리</li>
+        <li>사용성: 확인 필요 항목을 카드로 표시</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>SupplySync</span><span>6</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">4 · Agent 설계</div>
+  <h2>SG1 → SG4 그래프와 루프</h2>
+  <div class="flow">
+    <div class="node">SG1 RFQ 검토<small>추출 → 검증 → 확인(interrupt) → 매칭</small></div><span class="arrow">→</span>
+    <div class="node">SG2 공급·대안<small>BOM → 재고 → 대안 비교</small></div><span class="arrow">→</span>
+    <div class="node">SG3 견적<small>초안 → 검증</small></div><span class="arrow">→</span>
+    <div class="node">SG4 승인·등록<small>승인(interrupt) → 재확인 → 등록</small></div>
+  </div>
+  <div class="cols">
+    <div class="card"><div class="label">분기와 반복</div><ul><li>검증 실패 시 SG3 재작성 루프 (한도: [확인])</li><li>반려 시 SG3로 복귀</li></ul></div>
+    <div class="card"><div class="label">Agentic 요소</div><ul><li>도구 선택: 조회/변경에 따라 MCP 도구 선택</li><li>계획: SG 단위로 다음 단계 결정</li><li>사람 개입: 요구 확인, 승인 두 지점에서 멈춤</li></ul></div>
+  </div>
+  <div class="foot"><span>SupplySync</span><span>7</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">5 · MCP 설계</div>
+  <h2>도구를 조회와 변경으로 나눈다</h2>
+  <table>
+    <thead><tr><th>서버</th><th>구성</th><th>규칙</th></tr></thead>
+    <tbody>
+      <tr><td>business-mcp</td><td>9개 도구: 조회 5 · 변경 3 · 원문 1 <span class="note">[확인: 이름 목록]</span></td><td>변경 도구는 destructiveHint 표시 <span class="note">[확인]</span>, 쓰기는 백엔드 경유</td></tr>
+      <tr><td>rag-mcp</td><td>검색 도구 + 원문 Resource</td><td>근거 인용은 원문 청크 기준</td></tr>
+    </tbody>
+  </table>
+  <p>오류 처리: 입력 오류(VALIDATION_ERROR), 상태 충돌(409), 타임아웃은 재시도 또는 사용자 안내</p>
+  <div class="foot"><span>SupplySync</span><span>8</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">6 · 구현과 데모</div>
+  <h2>데모 흐름 7단계</h2>
+  <div class="cols">
+    <ul>
+      <li>1. RFQ 원문 업로드</li>
+      <li>2. SSE로 진행 상황 확인</li>
+      <li>3. 근거와 함께 견적 표시</li>
+      <li>4. 담당자 승인 대기</li>
+    </ul>
+    <ul>
+      <li>5. 승인</li>
+      <li>6. 재고 재확인</li>
+      <li>7. 견적 등록</li>
+    </ul>
+  </div>
+  <p class="note">데모 계정: 고객(한별모터스), 담당자(대성오토텍). 실제 화면 캡처를 넣는다 [확인]</p>
+  <div class="foot"><span>SupplySync</span><span>9</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">7 · Harness</div>
+  <h2>8개 구성 요소 적용</h2>
+  <table>
+    <tbody>
+      <tr><td>지시문</td><td>SG별 역할과 출력 형식</td></tr>
+      <tr><td>도구</td><td>허용 도구 목록과 권한</td></tr>
+      <tr><td>컨텍스트</td><td>근거 청크만 투입</td></tr>
+      <tr><td>상태·메모리</td><td>작업 상태를 DB에 저장</td></tr>
+      <tr><td>루프 한도</td><td>재작성 횟수 상한 <span class="note">[확인]</span></td></tr>
+      <tr><td>가드레일</td><td>숫자는 코드가 계산, LLM은 문구만 작성</td></tr>
+      <tr><td>복구</td><td>끊김 시 상태 조회, 실패 시 재시도</td></tr>
+      <tr><td>관측</td><td>작업 이벤트 기록, trace_url</td></tr>
+    </tbody>
+  </table>
+  <div class="foot"><span>SupplySync</span><span>10</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">8 · 인증과 대기열 (가산점)</div>
+  <h2>역할별 권한과 작업 처리</h2>
+  <div class="cols">
+    <div class="card">
+      <div class="label">역할</div>
+      <ul>
+        <li>고객(CUSTOMER): 자기 회사 RFQ만</li>
+        <li>담당자(MANAGER): 전체 조회, 요구 확인, 승인</li>
+        <li>JWT Bearer, 만료는 expires_in 기준</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="label">대기열 · 내부 키</div>
+      <ul>
+        <li>작업 상태 QUEUED로 대기 단계 표시</li>
+        <li>[확인] 큐 방식과 실패 재시도 정책</li>
+        <li>내부 API 키는 Agent 전용, 브라우저에 전달하지 않음</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>SupplySync</span><span>11</span></div>
+</section>
+
+<section class="slide">
+  <div class="kicker">9 · 정리</div>
+  <h2>잘된 점 · 못한 점 · 아쉬운 점</h2>
+  <div class="cols">
+    <div class="card"><div class="label">잘된 점</div><ul><li>[확인] 팀 작성</li></ul></div>
+    <div class="card"><div class="label">못한 점</div><ul><li>실제 백엔드 연동 end-to-end 검증</li><li>분석 결과 화면의 세부 항목</li></ul></div>
+  </div>
+  <div class="card"><div class="label">아쉬운 점 · 다음 단계</div><ul><li>[확인] 팀 작성</li><li>인증 실검증, 대기열 도입, 실제 데이터 연결</li></ul></div>
+  <div class="foot"><span>SupplySync</span><span>12</span></div>
+</section>
+
+<section class="slide end">
+  <div class="kicker">감사합니다</div>
+  <h1>SupplySync</h1>
+  <p class="muted">질문 받겠습니다</p>
+</section>
+
+</div></div>
+<div id="nav"><button id="prev">이전</button><span id="pos"></span><button id="next">다음</button></div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  const stage = document.getElementById('stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 56) / 720);
+    stage.style.transform = `scale(${s})`;
+  }
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((el, k) => el.classList.toggle('on', k === i));
+    document.getElementById('pos').textContent = `${i + 1} / ${slides.length}`;
+    document.getElementById('prev').disabled = i === 0;
+    document.getElementById('next').disabled = i === slides.length - 1;
+    history.replaceState(null, '', '#' + (i + 1));
+  }
+  document.getElementById('prev').onclick = () => show(i - 1);
+  document.getElementById('next').onclick = () => show(i + 1);
+  addEventListener('keydown', e => {
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); show(i + 1); }
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+  });
+  addEventListener('resize', fit);
+  fit();
+  show((parseInt(location.hash.slice(1), 10) || 1) - 1);
+</script>
+</body>
+</html>

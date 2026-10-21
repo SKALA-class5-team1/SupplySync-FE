@@ -1,0 +1,98 @@
+import { ApiError, authHeaders } from './client'
+import type { StepName, TaskStatus } from './types'
+import { request } from './client'
+
+export const TASK_EVENTS = [
+  'STEP_START', 'STEP_END', 'TOOL_START', 'TOOL_END', 'TOKEN',
+  'CLARIFICATION_REQUIRED', 'APPROVAL_REQUIRED', 'DONE', 'FAILED',
+] as const
+export type TaskEventName = (typeof TASK_EVENTS)[number]
+
+export interface TaskEvent {
+  event: TaskEventName
+  data: unknown
+}
+
+export interface TaskState {
+  task_id: string
+  status: TaskStatus
+  current_step?: StepName | null
+  failure_reason?: string | null
+  [key: string]: unknown
+}
+
+const TERMINAL: TaskEventName[] = ['DONE', 'FAILED']
+
+// 끊겼을 때 현재 상태 복구 (지난 이벤트는 다시 받을 수 없다)
+export function getTask(taskId: string): Promise<TaskState> {
+  return request<TaskState>('GET', `/api/ai/tasks/${encodeURIComponent(taskId)}`)
+}
+
+/**
+ * GET /api/ai/tasks/{task_id}/stream 을 fetch로 읽는다 (Authorization 헤더 사용).
+ * 반환 함수를 호출하면 스트림을 중단한다.
+ */
+export function openTaskStream(
+  taskId: string,
+  handlers: {
+    onEvent: (e: TaskEvent) => void
+    // 'terminal': DONE/FAILED를 받고 닫힘. 'closed': 그 전에 닫힘(5분 제한, 토큰 만료, 네트워크 오류 등)
+    onDisconnect: (reason: 'terminal' | 'closed') => void
+  },
+): () => void {
+  const controller = new AbortController()
+  const url = `/api/ai/tasks/${encodeURIComponent(taskId)}/stream`
+
+  ;(async () => {
+    let finished = false
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: 'text/event-stream', ...authHeaders() },
+        signal: controller.signal,
+      })
+      if (!res.ok || !res.body) throw new ApiError(res.status, null)
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      for (;;) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        let sep: number
+        while ((sep = buffer.indexOf('\n\n')) !== -1) {
+          const block = buffer.slice(0, sep)
+          buffer = buffer.slice(sep + 2)
+          const parsed = parseBlock(block)
+          if (!parsed) continue
+          handlers.onEvent(parsed)
+          if (TERMINAL.includes(parsed.event)) finished = true
+        }
+      }
+      handlers.onDisconnect(finished ? 'terminal' : 'closed')
+    } catch {
+      if (controller.signal.aborted) return
+      handlers.onDisconnect('closed')
+    }
+  })()
+
+  return () => controller.abort()
+}
+
+function parseBlock(block: string): TaskEvent | null {
+  let name = 'message'
+  const dataLines: string[] = []
+  for (const line of block.split('\n')) {
+    if (!line || line.startsWith(':')) continue
+    if (line.startsWith('event:')) name = line.slice(6).trim()
+    else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''))
+  }
+  if (!(TASK_EVENTS as readonly string[]).includes(name)) return null
+  const raw = dataLines.join('\n')
+  let data: unknown = raw
+  try {
+    data = raw ? JSON.parse(raw) : null
+  } catch {
+    // JSON이 아니면 문자열 그대로 둔다
+  }
+  return { event: name as TaskEventName, data }
+}

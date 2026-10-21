@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SupplySync</title>
+<style>
+/* Layout: sticky header, single centered column; approval page splits list and detail, stacks below 900px. */
+:root{
+  color-scheme:light;
+  --bg:#EEF1F5; --surface:#FFFFFF; --paper:#F8FAFC; --ink:#1A2433; --muted:#56637A; --faint:#8A95A8;
+  --line:#D5DCE6; --line-soft:#E8EDF3;
+  --accent:#22385E; --accent-ink:#FFFFFF; --accent-soft:#E4EAF3; --slate:#5B6B86;
+  --high:#1F3560; --high-soft:#DDE5F1; --med:#5E6B7E; --med-soft:#ECEFF4;
+  --ok:#2E6A58; --ok-soft:#DFEEE8; --err:#8A3B3B; --err-soft:#F3E4E4;
+  --shadow:0 1px 2px rgba(20,32,51,.05),0 6px 20px rgba(20,32,51,.06);
+  --f:"Apple SD 산돌고딕 Neo","Apple SD Gothic Neo",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#0E1420; --surface:#161F2E; --paper:#1A2536; --ink:#E4E9F2; --muted:#A3AEBF; --faint:#7C879A;
+  --line:#2A364A; --line-soft:#1F2A3C;
+  --accent:#9DB3DE; --accent-ink:#0E1420; --accent-soft:#1E2C44; --slate:#7A8BA8;
+  --high:#C5D5F0; --high-soft:#24344F; --med:#A9B4C4; --med-soft:#222C3C;
+  --ok:#7CC4AE; --ok-soft:#18332B; --err:#E0A4A4; --err-soft:#3A2224;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25)}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E1420; --surface:#161F2E; --paper:#1A2536; --ink:#E4E9F2; --muted:#A3AEBF; --faint:#7C879A;
+  --line:#2A364A; --line-soft:#1F2A3C;
+  --accent:#9DB3DE; --accent-ink:#0E1420; --accent-soft:#1E2C44; --slate:#7A8BA8;
+  --high:#C5D5F0; --high-soft:#24344F; --med:#A9B4C4; --med-soft:#222C3C;
+  --ok:#7CC4AE; --ok-soft:#18332B; --err:#E0A4A4; --err-soft:#3A2224;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25)}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f);font-size:14px;line-height:1.55;min-height:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.45}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{margin:0;text-wrap:balance;font-weight:700}
+h1{font-size:22px;letter-spacing:-.01em}
+h2{font-size:16px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:12.5px}
+.sr{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:no-preference){.toast{transition:.25s}}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px 20px;flex-wrap:wrap}
+.brand{font-weight:700;font-size:18px;letter-spacing:-.01em;text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:8px}
+.brand i{width:22px;height:22px;border-radius:6px;background:var(--accent);display:inline-block;position:relative;flex:none}
+.brand i::after{content:"";position:absolute;inset:6px;border:2px solid var(--accent-ink);border-radius:50%}
+.nav{display:flex;gap:4px;flex-wrap:wrap}
+.nav a{text-decoration:none;color:var(--muted);padding:6px 10px;border-radius:7px;font-weight:600;font-size:13.5px}
+.nav a:hover{background:var(--line-soft);color:var(--ink)}
+.nav a[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.who{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.who b{color:var(--ink);font-weight:600}
+
+/* layout */
+.wrap{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:22px 40px;min-width:0}
+.page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px 16px;flex-wrap:wrap;margin-bottom:16px}
+.page-head p{margin:4px 0 0;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:16px;align-items:start}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:900px){.grid2{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:620px){.grid3{grid-template-columns:minmax(0,1fr)}}
+
+/* surfaces */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;min-width:0;box-shadow:var(--shadow)}
+.card h2{margin-bottom:10px}
+.card + .card{margin-top:0}
+.stack{display:flex;flex-direction:column;gap:14px;min-width:0}
+.stat{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface);min-width:0}
+.stat b{display:block;font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.stat span{font-size:12.5px;color:var(--muted)}
+.sample-note{border:1px dashed var(--line);border-radius:10px;padding:10px 14px;color:var(--muted);font-size:13px;background:var(--paper)}
+
+/* forms */
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label,.lbl{font-size:12.5px;font-weight:600;color:var(--muted)}
+.field input,.field select,.field textarea,.input{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:9px 11px;width:100%;min-width:0}
+.field input:focus,.input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.form{display:grid;gap:12px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.form .full{grid-column:1/-1}
+@media (max-width:620px){.form{grid-template-columns:minmax(0,1fr)}}
+.radios{display:flex;gap:8px;flex-wrap:wrap}
+.radios label{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:13px;color:var(--ink)}
+.radios input{accent-color:var(--accent)}
+.radios label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.err{color:var(--err);font-size:13px;margin:0;min-height:1em}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 14px;font-weight:600;font-size:13.5px;text-decoration:none;min-height:36px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btn.block{width:100%}
+.btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* chips and tables */
+.chip{display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;background:var(--line-soft);color:var(--muted)}
+.chip.submitted{background:var(--line-soft);color:var(--muted)}
+.chip.confirm{background:var(--med-soft);color:var(--slate)}
+.chip.quote{background:var(--accent-soft);color:var(--accent)}
+.chip.approved{background:var(--high-soft);color:var(--high)}
+.chip.accepted{background:var(--ok-soft);color:var(--ok)}
+.chip.HIGH{background:var(--high);color:var(--surface)}
+.chip.MED{background:var(--med-soft);color:var(--med)}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{font-size:12px;font-weight:600;color:var(--muted);background:var(--paper);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover{background:var(--paper)}
+tbody tr.sel{background:var(--accent-soft)}
+td.k{width:38%;color:var(--muted)}
+
+/* list items */
+.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.item{width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px 14px;display:grid;gap:4px;min-width:0}
+.item[aria-current="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.item .t{font-weight:600;overflow-wrap:anywhere}
+.item .m{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+
+/* steps */
+.track{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.track div{border-top:3px solid var(--line);padding-top:8px;font-size:12px;color:var(--faint);min-width:0}
+.track div b{display:block;font-size:12.5px;color:var(--muted)}
+.track div.done{border-color:var(--slate)}
+.track div.done b{color:var(--ink)}
+.track div.cur{border-color:var(--accent)}
+.track div.cur b{color:var(--accent)}
+@media (max-width:620px){.track{grid-template-columns:minmax(0,1fr)}.track div{border-top:0;border-left:3px solid var(--line);padding:0 0 0 10px}.track div.done{border-color:var(--slate)}.track div.cur{border-color:var(--accent)}}
+
+/* upload */
+.drop{border:1.5px dashed var(--slate);border-radius:12px;padding:22px 16px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;background:var(--paper);cursor:pointer;min-width:0}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop b{font-size:15px}
+.drop span{font-size:12.5px;color:var(--muted)}
+.check-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line-soft);font-size:13.5px}
+.check-row:last-child{border-bottom:0}
+.check-row input{margin-top:3px;accent-color:var(--accent)}
+.note-box{border-left:3px solid var(--slate);background:var(--paper);padding:10px 12px;border-radius:6px;font-size:13px;color:var(--muted)}
+.empty{border:1.5px dashed var(--line);border-radius:12px;padding:24px;text-align:center;color:var(--muted)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:0}
+.kv div{background:var(--surface);padding:10px 12px;min-width:0}
+.kv dt{font-size:12px;color:var(--muted)}
+.kv dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+
+/* auth */
+.auth{max-width:440px;margin:24px auto 0}
+.auth h1{margin-bottom:4px}
+.demo{display:grid;gap:8px;margin-top:14px}
+
+/* segmented */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface);max-width:100%}
+.seg a{padding:8px 14px;text-decoration:none;color:var(--muted);font-weight:600;font-size:13.5px}
+.seg a[aria-current="page"]{background:var(--accent);color:var(--accent-ink)}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;z-index:50;max-width:calc(100% - 32px)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.foot{margin-top:24px;color:var(--faint);font-size:12px}
+.foot a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#home"><i></i>SupplySync</a>
+    <nav class="nav" id="nav" aria-label="주 메뉴"></nav>
+    <div class="who" id="who"></div>
+  </div>
+</header>
+<main class="wrap" id="app"></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ===================== 유틸 ===================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = s => Number(String(s).replace(/[^\d.]/g, '')) || 0;
+const fmt = n => Number(n).toLocaleString('ko-KR');
+const nowStr = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 저장이 막혀 있으면 세션 동안만 유지 */ } }
+};
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2400); }
+async function hashPw(pw) {
+  try {
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+    return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    let h = 0; for (const c of pw) h = (h * 31 + c.charCodeAt(0)) | 0; return 'fb' + h;
+  }
+}
+
+/* ===================== 상태 ===================== */
+const ST = {
+  submitted:{label:'접수', hint:'담당자 검토 대기'},
+  confirm:{label:'가정 확인', hint:'고객의 가정 확인 대기'},
+  quote:{label:'견적 작성', hint:'담당자가 견적을 작성하고 있습니다'},
+  approved:{label:'견적 발송', hint:'고객의 견적 수락 대기'},
+  accepted:{label:'수락 완료', hint:'견적이 확정되었습니다'}
+};
+const STEPS = Object.keys(ST);
+const SAMPLE = {
+  id:'HB-EV7-EWP-001', sample:true, company:'한별모터스', requester:'구매본부 전장부품팀',
+  product:'전동식 워터펌프 (EWP, 12V)', status:'confirm', fileName:'RFQ_HB-EV7-EWP-001.md', createdAt:'2026-10-12 09:00',
+  fields:{'연간 예상 물량 (EAU)':'120,000 개','공급 기간':'6 년','총 공급 물량':'900,000 개','양산 시작 (SOP)':'2027-09-01','양산 승인 (PPAP) 완료':'2027-10-15','유량':'22 L/h 이상 (수두 70 kPa 기준)','커넥터':'TBD','목표 단가':'38,000 원 / 개'},
+  issues:[
+    {sev:'HIGH', label:'유량 단위', detail:'22 L/h로 적혀 있어 단위 오기 의심', assume:'유량을 L/min으로 가정'},
+    {sev:'MED', label:'총 공급 물량', detail:'120,000 × 6년 = 720,000개와 불일치'},
+    {sev:'MED', label:'PPAP 일정', detail:'PPAP 2027-10-15가 SOP 2027-09-01보다 늦음'},
+    {sev:'MED', label:'커넥터', detail:'미정(TBD)', assume:'커넥터를 표준 4핀으로 가정'},
+    {sev:'MED', label:'냉각수', detail:'미기재', assume:'냉각수를 에틸렌글리콜 50%로 가정'}
+  ],
+  log:[{t:'2026-10-12 09:00', text:'RFQ 접수'}, {t:'2026-10-14 10:20', text:'담당자 검토 시작 · 고객 가정 확인 요청'}],
+  text:''
+};
+let RECORDS = [];           // 공유 저장소(db) 또는 이 브라우저의 임시 목록
+let DB = null, dbState = 'loading';
+let PENDING = null;         // 등록 페이지에서 읽은 파일
+let SEL = null;             // 승인 페이지에서 선택한 RFQ id
+let CHECKED = {};           // 고객 가정 확인 체크 상태
+let formMsg = '';
+
+const session = () => store.get('supplysync.session', null);
+const users = () => store.get('supplysync.users', []);
+const allRecords = () => [SAMPLE, ...RECORDS].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+const visibleRecords = s => allRecords().filter(r => s.role === 'staff' || r.sample || r.company === s.company);
+
+/* ===================== 저장소 연결 (db) ===================== */
+async function initDb() {
+  try { DB = window.claude ? await window.claude.use('db') : null; } catch (e) { DB = null; }
+  if (!DB) { dbState = 'local'; render(); return; }
+  DB.collection('rfqs').onSnapshot(snap => {
+    RECORDS = snap.docs.filter(d => d.exists).map(d => ({...d.data(), id: d.id}));
+    dbState = 'live';
+    render();
+  }, err => { dbState = 'local'; toast('저장소 연결이 끊겼습니다. 이 화면의 변경은 저장되지 않을 수 있습니다.'); render(); });
+}
+async function saveRecord(rec) {
+  if (DB) { await DB.collection('rfqs').doc(rec.id).set(rec); return; }
+  RECORDS = [rec, ...RECORDS.filter(r => r.id !== rec.id)];
+}
+const WRITE_ERR = e => (e && (e.code === 'invalid_argument' || e.code === 'not_granted' || e.code === 'revoked'))
+  ? '이 계정에는 변경 권한이 없습니다.'
+  : '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+
+/* ===================== RFQ 원문 해석 ===================== */
+function parseRfq(text) {
+  const f = {};
+  text.split('\n').forEach(line => {
+    const l = line.trim();
+    if (!l.startsWith('|') || /^\|\s*-/.test(l)) return;
+    const cells = l.slice(1, l.endsWith('|') ? -1 : undefined).split('|').map(s => s.trim());
+    for (let i = 0; i + 1 < cells.length; i += 2) {
+      if (cells[i] && cells[i+1] && cells[i] !== '항목') f[cells[i]] = cells[i+1];
+    }
+  });
+  return f;
+}
+const pick = (f, kw) => { const k = Object.keys(f).find(k => k.includes(kw)); return k ? f[k] : ''; };
+const dateIn = s => (String(s).match(/\d{4}-\d{2}-\d{2}/) || [''])[0];
+function checkRfq(f, text) {
+  const iss = [];
+  const flow = pick(f, '유량');
+  if (/L\/h/i.test(flow)) iss.push({sev:'HIGH', label:'유량 단위', detail:`${flow}: 시간당 표기라 단위 오기 의심`, assume:'유량을 L/min으로 가정'});
+  const eau = num(pick(f, 'EAU')), yrs = num(pick(f, '공급 기간')), tot = num(pick(f, '총 공급'));
+  if (eau && yrs && tot && tot !== eau * yrs) iss.push({sev:'MED', label:'총 공급 물량', detail:`${fmt(tot)}개 ≠ ${fmt(eau)} × ${yrs}년`});
+  const ppap = dateIn(pick(f, 'PPAP')), sop = dateIn(pick(f, 'SOP'));
+  if (ppap && sop && ppap > sop) iss.push({sev:'MED', label:'PPAP 일정', detail:`PPAP ${ppap}가 SOP ${sop}보다 늦음`});
+  const cn = pick(f, '커넥터');
+  if (!cn || /TBD/i.test(cn)) iss.push({sev:'MED', label:'커넥터', detail:cn ? '미정(TBD)' : '항목 없음', assume:'커넥터를 표준 4핀으로 가정'});
+  const cool = pick(f, '냉각수');
+  if (!cool || /미기재/.test(cool)) iss.push({sev:'MED', label:'냉각수', detail:'미기재', assume:'냉각수를 에틸렌글리콜 50%로 가정'});
+  const w = text.match(/품질 보증[\s\S]*?(\d+)\s*년/);
+  if (w && +w[1] > 3) iss.push({sev:'MED', label:'품질 보증', detail:`${w[1]}년 보증, 사내 한도 3년 초과`});
+  if (/상한\s*없음/.test(text)) iss.push({sev:'MED', label:'지연 배상', detail:'배상 상한 없음, 사내 한도 계약금액 10%'});
+  return iss;
+}
+function readFile(file) {
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { toast('2MB 이하 파일만 올릴 수 있습니다.'); return; }
+  if (!/\.(md|txt|csv|tsv)$/i.test(file.name)) { toast('.md, .txt, .csv 파일만 읽을 수 있습니다.'); return; }
+  const fr = new FileReader();
+  fr.onload = () => {
+    const text = String(fr.result || '');
+    const fields = parseRfq(text);
+    PENDING = {fileName:file.name, size:file.size, text, fields, issues:checkRfq(fields, text),
+      product: pick(fields, '요청 품목') || pick(fields, '품목') || ''};
+    if (!Object.keys(fields).length) toast('표 형식(| 항목 | 값 |)을 찾지 못했습니다. 내용을 확인해 주세요.');
+    else toast('원문을 읽었습니다.');
+    render();
+  };
+  fr.onerror = () => toast('파일을 읽지 못했습니다.');
+  fr.readAsText(file, 'utf-8');
+}
+
+/* ===================== 라우팅 ===================== */
+const PUBLIC = ['login', 'signup'];
+function route() {
+  const s = session();
+  let r = (location.hash || '').slice(1) || (s ? 'home' : 'login');
+  if (!s && !PUBLIC.includes(r)) r = 'login';
+  if (s && PUBLIC.includes(r)) r = 'home';
+  return r;
+}
+function go(r) { if (location.hash !== '#' + r) location.hash = r; else render(); }
+
+/* ===================== 공통 조각 ===================== */
+const chip = st => `<span class="chip ${st}">${ST[st] ? ST[st].label : st}</span>`;
+const sevChip = s => `<span class="chip ${s.sev}">${s.sev === 'HIGH' ? '높음' : '보통'}</span>`;
+function nav(s) {
+  if (!s) { $('#nav').innerHTML = ''; $('#who').innerHTML = ''; return; }
+  const r = route();
+  const items = [['home','메인'], ['register','RFQ 등록', s.role === 'customer'],
+    [s.role === 'staff' ? 'approve-staff' : 'approve-customer', '승인 페이지'], ['console','검토 콘솔']];
+  $('#nav').innerHTML = items.filter(i => i[2] !== false).map(([h, t]) => {
+    const href = h === 'console' ? 'review.html' : '#' + h;
+    const cur = (h === 'approve-staff' || h === 'approve-customer') ? r.startsWith('approve') : r === h;
+    return `<a href="${href}" ${cur ? 'aria-current="page"' : ''}>${t}</a>`;
+  }).join('');
+  $('#who').innerHTML = `<span><b>${esc(s.name)}</b> · ${esc(s.company)} · ${s.role === 'staff' ? '담당자' : '고객'}${s.demo ? ' (예시)' : ''}</span><button class="btn" data-act="logout">로그아웃</button>`;
+}
+
+/* ===================== 로그인 · 회원가입 ===================== */
+function viewLogin() {
+  return `<div class="auth"><div class="card stack">
+    <div><h1>로그인</h1><p class="muted small" style="margin:0">RFQ 등록과 견적 승인을 한 곳에서 진행합니다.</p></div>
+    <form id="f-login" class="stack" novalidate>
+      <div class="field"><label for="l-email">이메일</label><input id="l-email" type="email" autocomplete="username" required></div>
+      <div class="field"><label for="l-pw">비밀번호</label><input id="l-pw" type="password" autocomplete="current-password" required></div>
+      <p class="err" id="l-err" role="alert"></p>
+      <button class="btn primary block" type="submit">로그인</button>
+    </form>
+    <p class="small muted" style="margin:0">계정이 없으면 <a href="#signup">회원가입</a>을 누르세요.</p>
+    <div class="demo">
+      <div class="small muted">예시 계정으로 둘러보기 (실제 계정이 아닙니다)</div>
+      <div class="btns"><button class="btn block" data-act="demo-customer">고객 예시 계정</button><button class="btn block" data-act="demo-staff">담당자 예시 계정</button></div>
+    </div>
+  </div></div>`;
+}
+function viewSignup() {
+  return `<div class="auth"><div class="card stack">
+    <div><h1>회원가입</h1><p class="muted small" style="margin:0">고객사 담당자는 RFQ를 등록하고, 공급사 담당자는 승인 업무를 처리합니다.</p></div>
+    <form id="f-signup" class="stack" novalidate>
+      <div class="field"><span class="lbl" id="s-role-l">구분</span>
+        <div class="radios" role="radiogroup" aria-labelledby="s-role-l">
+          <label><input type="radio" name="s-role" value="customer" checked> 고객사 담당자</label>
+          <label><input type="radio" name="s-role" value="staff"> 공급사 담당자</label>
+        </div></div>
+      <div class="form">
+        <div class="field"><label for="s-name">이름</label><input id="s-name" required autocomplete="name"></div>
+        <div class="field"><label for="s-company">회사명</label><input id="s-company" required autocomplete="organization"></div>
+        <div class="field full"><label for="s-email">이메일</label><input id="s-email" type="email" required autocomplete="email"></div>
+        <div class="field full"><label for="s-pw">비밀번호 (8자 이상)</label><input id="s-pw" type="password" minlength="8" required autocomplete="new-password"></div>
+      </div>
+      <p class="err" id="s-err" role="alert"></p>
+      <button class="btn primary block" type="submit">가입하고 시작하기</button>
+    </form>
+    <p class="small muted" style="margin:0">이미 계정이 있으면 <a href="#login">로그인</a>하세요.</p>
+  </div></div>`;
+}
+
+/* ===================== 메인 ===================== */
+function viewHome(s) {
+  const list = visibleRecords(s);
+  const mine = list.filter(r => !r.sample);
+  const open = mine.filter(r => r.status !== 'accepted').length;
+  const needCustomer = mine.filter(r => r.status === 'confirm' || r.status === 'approved').length;
+  const needStaff = mine.filter(r => r.status === 'submitted' || r.status === 'quote').length;
+  const recent = list.slice(0, 6);
+  const storeNote = dbState === 'live' ? '' : '<div class="sample-note">공유 저장소가 연결되지 않아 등록한 RFQ는 이 브라우저에서만 보입니다.</div>';
+  return `<div class="page-head"><div>
+      <h1>안녕하세요, ${esc(s.name)}님</h1>
+      <p>${s.role === 'customer' ? `${esc(s.company)}의 RFQ 진행 현황입니다.` : '접수된 RFQ와 승인 대기 건을 확인하세요.'}</p>
+    </div>
+    ${s.role === 'customer' ? '<a class="btn primary" href="#register">RFQ 등록</a>' : `<a class="btn primary" href="#approve-staff">담당자 승인 보기</a>`}
+  </div>
+  ${storeNote}
+  <div class="grid3" style="margin:14px 0">
+    <div class="stat"><b class="num">${open}</b><span>진행 중 RFQ</span></div>
+    <div class="stat"><b class="num">${s.role === 'customer' ? needCustomer : needStaff}</b><span>${s.role === 'customer' ? '고객 응답 필요' : '담당자 처리 필요'}</span></div>
+    <div class="stat"><b class="num">${mine.filter(r => r.status === 'accepted').length}</b><span>수락 완료</span></div>
+  </div>
+  <div class="card stack">
+    <div class="btns" style="justify-content:space-between"><h2>최근 RFQ</h2><a class="small" href="#${s.role === 'staff' ? 'approve-staff' : 'approve-customer'}">승인 페이지로</a></div>
+    ${recent.length ? `<div class="tw"><table><thead><tr><th>RFQ</th><th>고객사</th><th>품목</th><th>상태</th><th>접수일</th></tr></thead><tbody>
+      ${recent.map(r => `<tr class="click" data-goto="${esc(r.id)}"><td class="num">${esc(r.id)}${r.sample ? ' <span class="chip">예시</span>' : ''}</td><td>${esc(r.company)}</td><td>${esc(r.product)}</td><td>${chip(r.status)}</td><td class="num">${esc(String(r.createdAt).slice(0, 10))}</td></tr>`).join('')}
+      </tbody></table></div>` : '<div class="empty">아직 등록된 RFQ가 없습니다. 고객 계정으로 RFQ 원문을 올려 보세요.</div>'}
+  </div>
+  <div class="card" style="margin-top:14px"><h2>진행 순서</h2>
+    <div class="track" style="margin-top:8px">${STEPS.map((k, i) => `<div><b>${i+1}. ${ST[k].label}</b>${ST[k].hint}</div>`).join('')}</div>
+  </div>`;
+}
+
+/* ===================== RFQ 등록 ===================== */
+function viewRegister(s) {
+  if (s.role !== 'customer') return `<div class="empty">RFQ 등록은 고객사 계정에서 할 수 있습니다. <a href="#approve-staff">담당자 승인 페이지</a>로 이동하세요.</div>`;
+  const p = PENDING;
+  return `<div class="page-head"><div><h1>RFQ 등록</h1><p>RFQ 원문 파일을 올리면 항목을 읽고 확인할 사항을 먼저 찾아 드립니다.</p></div></div>
+  <div class="grid2">
+    <div class="card stack">
+      <h2>1. RFQ 원문 업로드</h2>
+      <label class="drop" id="drop" for="f-file">
+        ${ic('up')}<b>파일을 끌어 놓거나 눌러서 선택</b><span>.md · .txt · .csv (2MB 이하)</span>
+        <input id="f-file" class="sr" type="file" accept=".md,.txt,.csv,.tsv,text/markdown,text/plain,text/csv">
+      </label>
+      <div class="note-box">PDF나 Word 파일은 본문을 복사해 .txt로 저장한 뒤 올려 주세요. 표 형식(| 항목 | 값 |)의 항목을 읽습니다.</div>
+      ${p ? `<div class="check-row"><span>✓</span><span><b>${esc(p.fileName)}</b> <span class="muted small">${fmt(Math.round(p.size/1024*10)/10)} KB · 항목 ${Object.keys(p.fields).length}개 인식</span></span></div>` : ''}
+    </div>
+    <div class="stack">
+      ${p ? `
+      <div class="card stack">
+        <h2>2. 인식한 내용 확인</h2>
+        <div class="field"><label for="r-product">요청 품목</label><input id="r-product" value="${esc(p.product)}" placeholder="품목명을 입력하세요"></div>
+        <div class="tw"><table><tbody>
+          ${Object.entries(p.fields).slice(0, 14).map(([k, v]) => `<tr><td class="k">${esc(k)}</td><td>${esc(v)}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">인식한 항목이 없습니다.</td></tr>'}
+        </tbody></table></div>
+      </div>
+      <div class="card stack">
+        <h2>3. 확인이 필요한 항목 <span class="muted small">${p.issues.length}건</span></h2>
+        ${p.issues.length ? `<ul class="items">${p.issues.map(i => `<li class="item" style="cursor:default"><div class="m">${sevChip(i)}<b style="color:var(--ink)">${esc(i.label)}</b></div><span class="small">${esc(i.detail)}</span>${i.assume ? `<span class="small muted">가정: ${esc(i.assume)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="muted" style="margin:0">확인이 필요한 항목이 없습니다.</p>'}
+        <p class="small muted" style="margin:0">가정한 항목은 접수 후 고객이 승인 페이지에서 확인합니다.</p>
+        <div class="btns"><button class="btn primary" id="btn-submit" data-act="submit-rfq" ${p.product.trim() ? '' : 'disabled'}>RFQ 접수</button><button class="btn" data-act="clear-file">다른 파일 선택</button></div>
+        <p class="err" id="r-err" role="alert"></p>
+      </div>` : `<div class="empty">왼쪽에서 RFQ 원문 파일을 올리면 여기에 인식 결과가 나타납니다.</div>`}
+    </div>
+  </div>`;
+}
+
+/* ===================== 승인 페이지 (고객 기준 · 담당자 기준) ===================== */
+function viewApprove(s, view) {
+  const recs = visibleRecords(s);
+  if (!recs.length) SEL = null;
+  else if (!recs.find(r => r.id === SEL)) SEL = recs[0].id;
+  const sel = recs.find(r => r.id === SEL);
+  const tabs = `<nav class="seg" aria-label="승인 기준">
+    <a href="#approve-customer" ${view === 'customer' ? 'aria-current="page"' : ''}>고객 기준</a>
+    <a href="#approve-staff" ${view === 'staff' ? 'aria-current="page"' : ''}>담당자 기준</a></nav>`;
+  const head = `<div class="page-head"><div><h1>견적 승인</h1><p>${view === 'customer' ? '고객이 가정을 확인하고 견적을 수락하는 화면입니다.' : '접수된 RFQ를 검토하고 견적을 발송하는 화면입니다.'}</p></div>${tabs}</div>`;
+  const list = recs.length ? `<ul class="items" role="list">${recs.map(r => `<li><button class="item" data-sel="${esc(r.id)}" aria-current="${r.id === SEL}">
+      <span class="t">${esc(r.product)}</span>
+      <span class="m"><span>${esc(r.id)} · ${esc(r.company)}</span>${chip(r.status)}</span></button></li>`).join('')}</ul>`
+    : '<div class="empty">표시할 RFQ가 없습니다.</div>';
+  return head + `<div class="grid2"><div class="stack"><h2>${view === 'customer' ? '내 RFQ' : '접수된 RFQ'}</h2>${list}</div>${sel ? (view === 'customer' ? detailCustomer(sel) : detailStaff(sel)) : '<div class="empty">왼쪽에서 RFQ를 선택하세요.</div>'}</div>`;
+}
+function track(st) {
+  const idx = STEPS.indexOf(st);
+  return `<div class="track">${STEPS.map((k, i) => `<div class="${i < idx ? 'done' : i === idx ? 'cur' : ''}"><b>${ST[k].label}</b>${i === idx ? esc(ST[k].hint) : i < idx ? '완료' : ''}</div>`).join('')}</div>`;
+}
+function logHtml(r) {
+  return (r.log || []).length ? `<ul class="items small">${[...r.log].reverse().map(l => `<li><span class="muted num">${esc(l.t)}</span> ${esc(l.text)}</li>`).join('')}</ul>` : '';
+}
+function sampleNote(r) { return r.sample ? '<div class="sample-note">예시 데이터입니다. 값은 바꿀 수 없고, 실제 RFQ를 등록해 흐름을 확인해 보세요.</div>' : ''; }
+function detailCustomer(r) {
+  const asm = r.assumptions || (r.issues || []).filter(i => i.assume).map(i => i.assume);
+  let action = '';
+  if (r.status === 'confirm') {
+    const all = asm.length && asm.every((_, i) => CHECKED[r.id + i]);
+    action = `<div class="stack">
+      <h2>가정 확인</h2>
+      <p class="small muted" style="margin:0">아래 가정이 맞는지 확인해 주세요. 다르면 담당자에게 요청서를 다시 보내야 합니다.</p>
+      ${asm.map((a, i) => `<label class="check-row"><input type="checkbox" data-check="${esc(r.id + i)}" ${CHECKED[r.id + i] ? 'checked' : ''} ${r.sample ? 'disabled' : ''}><span>${esc(a)}</span></label>`).join('') || '<p class="muted">확인할 가정이 없습니다.</p>'}
+      <div class="btns"><button class="btn primary" data-act="cust-confirm" data-id="${esc(r.id)}" ${all && !r.sample ? '' : 'disabled'}>가정 확인 및 동의</button></div></div>`;
+  } else if (r.status === 'approved') {
+    action = `<div class="stack"><h2>견적 수락</h2><p class="small muted" style="margin:0">담당자가 발송한 견적을 확인하고 수락합니다.</p>
+      <div class="btns"><button class="btn primary" data-act="cust-accept" data-id="${esc(r.id)}" ${r.sample ? 'disabled' : ''}>견적 수락</button></div></div>`;
+  } else if (r.status === 'accepted') {
+    action = '<p style="margin:0;color:var(--ok);font-weight:600">견적을 수락했습니다.</p>';
+  } else {
+    action = `<p class="muted" style="margin:0">${ST[r.status].hint}. 담당자 응답을 기다려 주세요.</p>`;
+  }
+  return `<div class="card stack">
+    <div class="btns" style="justify-content:space-between"><div><div class="small muted num">${esc(r.id)}</div><h2 style="font-size:18px">${esc(r.product)}</h2></div>${chip(r.status)}</div>
+    ${sampleNote(r)}
+    ${track(r.status)}
+    ${action}
+    <div><h2 style="margin-bottom:6px">진행 기록</h2>${logHtml(r)}</div>
+  </div>`;
+}
+function detailStaff(r) {
+  const acts = {
+    submitted:['start-review', '검토 시작 · 가정 확인 요청'],
+    quote:['send-quote', '견적 발송']
+  };
+  const act = acts[r.status];
+  return `<div class="card stack">
+    <div class="btns" style="justify-content:space-between"><div><div class="small muted num">${esc(r.id)} · ${esc(r.company)} · ${esc(r.requester || '')}</div><h2 style="font-size:18px">${esc(r.product)}</h2></div>${chip(r.status)}</div>
+    ${sampleNote(r)}
+    ${track(r.status)}
+    <div><h2 style="margin-bottom:6px">검토 항목 <span class="muted small">${(r.issues || []).length}건</span></h2>
+      ${(r.issues || []).length ? `<ul class="items">${r.issues.map(i => `<li class="item" style="cursor:default"><div class="m">${sevChip(i)}<b style="color:var(--ink)">${esc(i.label)}</b></div><span class="small">${esc(i.detail)}</span></li>`).join('')}</ul>` : '<p class="muted" style="margin:0">확인 항목이 없습니다.</p>'}
+    </div>
+    <div><h2 style="margin-bottom:6px">인식한 항목</h2>
+      <div class="tw"><table><tbody>${Object.entries(r.fields || {}).slice(0, 12).map(([k, v]) => `<tr><td class="k">${esc(k)}</td><td>${esc(v)}</td></tr>`).join('') || '<tr><td class="muted">없음</td></tr>'}</tbody></table></div></div>
+    <div class="btns">${act ? `<button class="btn primary" data-act="${act[0]}" data-id="${esc(r.id)}" ${r.sample ? 'disabled' : ''}>${act[1]}</button>` : `<span class="muted small">${ST[r.status].hint}</span>`}</div>
+    <div><h2 style="margin-bottom:6px">진행 기록</h2>${logHtml(r)}</div>
+  </div>`;
+}
+
+/* ===================== 상태 변경 ===================== */
+async function advance(id, to, text, extra = {}) {
+  const r = RECORDS.find(x => x.id === id) || (SAMPLE.id === id ? SAMPLE : null);
+  if (!r || r.sample) { toast('예시 데이터는 바꿀 수 없습니다.'); return; }
+  const rec = {...r, ...extra, status: to, log: [...(r.log || []), {t: nowStr(), text}]};
+  try { await saveRecord(rec); toast(text); }
+  catch (e) { toast(WRITE_ERR(e)); }
+  render();
+}
+
+/* ===================== 화면 그리기 ===================== */
+function ic(k) {
+  const p = {up:'<path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>'}[k] || '';
+  return `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+}
+function render() {
+  const s = session();
+  const r = route();
+  nav(s);
+  const app = $('#app');
+  const keep = document.activeElement && document.activeElement.id;
+  let html;
+  if (r === 'login') html = viewLogin();
+  else if (r === 'signup') html = viewSignup();
+  else if (r === 'home') html = viewHome(s);
+  else if (r === 'register') html = viewRegister(s);
+  else if (r === 'approve-customer') html = viewApprove(s, 'customer');
+  else if (r === 'approve-staff') html = viewApprove(s, 'staff');
+  else html = viewHome(s);
+  app.innerHTML = html + (s || r === 'login' || r === 'signup' ? `<p class="foot">데이터: ${dbState === 'live' ? '공유 저장소 연결됨' : '이 브라우저에만 저장됨'} · 회사명·품목·수치는 모두 가상입니다. 비밀번호는 암호화해 이 브라우저에 저장하며, 실제 인증 서버가 아닌 시연용입니다.</p>` : '');
+  if (keep) { const el = document.getElementById(keep); if (el) el.focus(); }
+}
+
+/* ===================== 이벤트 ===================== */
+window.addEventListener('hashchange', render);
+document.addEventListener('click', async e => {
+  const sel = e.target.closest('[data-sel]');
+  if (sel) { SEL = sel.dataset.sel; render(); return; }
+  const go2 = e.target.closest('[data-goto]');
+  if (go2 && !e.target.closest('button,a')) { SEL = go2.dataset.goto; go(session().role === 'staff' ? 'approve-staff' : 'approve-customer'); return; }
+  const a = e.target.closest('[data-act]');
+  if (!a) return;
+  const act = a.dataset.act, s = session();
+  if (act === 'logout') { store.set('supplysync.session', null); CHECKED = {}; PENDING = null; go('login'); return; }
+  if (act === 'demo-customer') { store.set('supplysync.session', {name:'예시 고객 담당자', company:'한별모터스', role:'customer', demo:true}); go('home'); return; }
+  if (act === 'demo-staff') { store.set('supplysync.session', {name:'예시 담당자', company:'대성오토텍', role:'staff', demo:true}); go('home'); return; }
+  if (act === 'clear-file') { PENDING = null; render(); return; }
+  if (act === 'submit-rfq') {
+    const p = PENDING; if (!p || !s) return;
+    const product = ($('#r-product')?.value || '').trim();
+    if (!product) { $('#r-err').textContent = '요청 품목을 입력해 주세요.'; return; }
+    const d = new Date(), id = 'RFQ-' + String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+    const rec = {
+      id, company:s.company, requester:s.name, product, status:'submitted', fileName:p.fileName,
+      createdAt:nowStr(), fields:p.fields, issues:p.issues,
+      assumptions:p.issues.filter(i => i.assume).map(i => i.assume),
+      log:[{t:nowStr(), text:'RFQ 접수 · ' + p.fileName}], text:p.text.slice(0, 60000)
+    };
+    try { await saveRecord(rec); PENDING = null; toast('RFQ를 접수했습니다.'); go('approve-customer'); SEL = id; render(); }
+    catch (err) { $('#r-err').textContent = WRITE_ERR(err); }
+    return;
+  }
+  if (act === 'cust-confirm') { CHECKED = {}; return advance(a.dataset.id, 'quote', '고객 가정 확인 · 견적 작성 시작'); }
+  if (act === 'cust-accept') return advance(a.dataset.id, 'accepted', '고객 견적 수락');
+  if (act === 'start-review') return advance(a.dataset.id, 'confirm', '담당자 검토 시작 · 고객 가정 확인 요청');
+  if (act === 'send-quote') return advance(a.dataset.id, 'approved', '견적 발송');
+});
+document.addEventListener('change', e => {
+  if (e.target.id === 'f-file') readFile(e.target.files[0]);
+  if (e.target.dataset.check) { CHECKED[e.target.dataset.check] = e.target.checked; render(); }
+});
+document.addEventListener('dragover', e => { if (e.target.closest('#drop')) { e.preventDefault(); $('#drop').classList.add('over'); } });
+document.addEventListener('dragleave', e => { if (e.target.closest && e.target.closest('#drop')) $('#drop').classList.remove('over'); });
+document.addEventListener('drop', e => { if (e.target.closest('#drop')) { e.preventDefault(); readFile(e.dataTransfer.files[0]); } });
+document.addEventListener('submit', async e => {
+  e.preventDefault();
+  if (e.target.id === 'f-login') {
+    const email = $('#l-email').value.trim().toLowerCase(), pw = $('#l-pw').value;
+    const u = users().find(x => x.email === email);
+    if (!u || u.hash !== await hashPw(pw)) { $('#l-err').textContent = '이메일 또는 비밀번호가 맞지 않습니다.'; return; }
+    store.set('supplysync.session', {name:u.name, company:u.company, role:u.role, email:u.email});
+    go('home');
+  }
+  if (e.target.id === 'f-signup') {
+    const role = document.querySelector('input[name="s-role"]:checked').value;
+    const name = $('#s-name').value.trim(), company = $('#s-company').value.trim();
+    const email = $('#s-email').value.trim().toLowerCase(), pw = $('#s-pw').value;
+    const err = $('#s-err');
+    if (!name || !company || !email) { err.textContent = '이름, 회사명, 이메일을 모두 입력해 주세요.'; return; }
+    if (pw.length < 8) { err.textContent = '비밀번호는 8자 이상이어야 합니다.'; return; }
+    const list = users();
+    if (list.some(x => x.email === email)) { err.textContent = '이미 가입된 이메일입니다. 로그인해 주세요.'; return; }
+    list.push({name, company, email, role, hash: await hashPw(pw)});
+    store.set('supplysync.users', list);
+    store.set('supplysync.session', {name, company, role, email});
+    toast('가입했습니다.');
+    go('home');
+  }
+});
+
+/* ===================== 시작 ===================== */
+render();
+initDb();
+</script>
+</body>
+</html>

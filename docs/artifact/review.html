@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>RFQ 검토 콘솔</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#EEF1F5; --surface:#FFFFFF; --paper:#FBFCFD; --ink:#1A2433; --muted:#56637A; --faint:#8A95A8;
+  --line:#D5DCE6; --line-soft:#E8EDF3;
+  --accent:#22385E; --accent-ink:#FFFFFF; --accent-soft:#E4EAF3; --slate:#5B6B86;
+  --high:#1F3560; --high-soft:#DDE5F1; --med:#5E6B7E; --med-soft:#ECEFF4;
+  --opt:#3F6B8C; --opt-soft:#E1ECF4; --ok:#2E6A58; --ok-soft:#DFEEE8;
+  --f:"Apple SD 산돌고딕 Neo","Apple SD Gothic Neo",sans-serif;
+  --shadow:0 1px 2px rgba(20,32,51,.05),0 6px 20px rgba(20,32,51,.06);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#0E1420; --surface:#161F2E; --paper:#1A2536; --ink:#E4E9F2; --muted:#A3AEBF; --faint:#7C879A;
+  --line:#2A364A; --line-soft:#1F2A3C;
+  --accent:#9DB3DE; --accent-ink:#0E1420; --accent-soft:#1E2C44; --slate:#7A8BA8;
+  --high:#C5D5F0; --high-soft:#24344F; --med:#A9B4C4; --med-soft:#222C3C;
+  --opt:#8DBBD9; --opt-soft:#1C3142; --ok:#7CC4AE; --ok-soft:#18332B;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25)}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E1420; --surface:#161F2E; --paper:#1A2536; --ink:#E4E9F2; --muted:#A3AEBF; --faint:#7C879A;
+  --line:#2A364A; --line-soft:#1F2A3C;
+  --accent:#9DB3DE; --accent-ink:#0E1420; --accent-soft:#1E2C44; --slate:#7A8BA8;
+  --high:#C5D5F0; --high-soft:#24344F; --med:#A9B4C4; --med-soft:#222C3C;
+  --opt:#8DBBD9; --opt-soft:#1C3142; --ok:#7CC4AE; --ok-soft:#18332B;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25)}
+
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f);font-size:14px;line-height:1.55}
+body{min-height:100vh}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{cursor:not-allowed;opacity:.45}
+h1,h2,h3{margin:0;text-wrap:balance}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-variant-numeric:tabular-nums;letter-spacing:0}
+svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+/* shell */
+.shell{display:grid;grid-template-columns:64px 272px minmax(0,1fr);min-height:100vh}
+.rail{position:sticky;top:0;height:100vh;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:8px;padding-block:14px}
+.orb{width:34px;height:34px;border-radius:9px;border:0;padding:0;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:13px;margin-bottom:12px}
+.ri{width:44px;height:44px;border:0;border-radius:10px;background:none;color:var(--muted);display:grid;place-items:center}
+.ri svg.i{width:21px;height:21px}
+.ri:hover{background:var(--line-soft)}
+.ri[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.rail hr{width:36px;border:0;border-top:1px solid var(--line);margin:6px 0}
+.me{margin-top:auto;width:38px;height:38px;border-radius:50%;background:var(--slate);color:var(--accent-ink);display:grid;place-items:center;font-weight:600;font-size:12px}
+.side{position:sticky;top:0;height:100vh;overflow:auto;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+.side-brand{padding:18px 22px;border-bottom:1px solid var(--line);display:grid;gap:3px}
+.wm{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.ct{font-size:14px;font-weight:600;margin-top:4px}
+.cs{font-size:12.5px;color:var(--muted)}
+.pill-soft{justify-self:start;margin-top:8px;background:var(--accent-soft);color:var(--accent);font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:14px}
+.vsteps{list-style:none;margin:0;padding:16px 16px 8px;display:grid;gap:6px}
+.vsteps button{border:1px solid transparent;background:none;width:100%;display:flex;gap:10px;align-items:center;padding:8px;border-radius:9px;text-align:left}
+.vsteps button:hover:not(:disabled){background:var(--line-soft)}
+.vsteps li.cur>button{background:var(--accent-soft);border-color:var(--accent-soft)}
+.vc{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex:none;border:1.5px solid var(--line);font-size:12px;font-weight:600;color:var(--muted)}
+.vsteps li.done .vc{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.vsteps li.cur .vc{border-color:var(--accent);color:var(--accent)}
+.vl{display:flex;flex-direction:column;min-width:0}
+.vl small{font-size:11.5px;color:var(--faint)}
+.vl b{font-size:13.5px;font-weight:600}
+.nodes{list-style:none;margin:0 0 6px 46px;padding:0;display:grid;gap:2px}
+.nodes li{font-size:12px;color:var(--faint);display:flex;gap:6px;align-items:center}
+.nodes li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--line);flex:none}
+.nodes li.done{color:var(--ink)} .nodes li.done::before{background:var(--ok)}
+.nodes li.run{color:var(--accent);font-weight:500} .nodes li.run::before{background:var(--accent)}
+.nodes li.wait{color:var(--med);font-weight:600} .nodes li.wait::before{background:var(--med)}
+.logbox{margin:auto 16px 16px;border:1px solid var(--line);border-radius:12px;background:var(--paper);padding:12px;display:flex;flex-direction:column;min-height:0}
+.logbox h2{font-size:11.5px;letter-spacing:.06em;color:var(--muted);font-weight:500;margin:0 0 8px}
+.log{list-style:none;margin:0;padding:0;font-size:12px;max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:4px}
+.log li{display:flex;gap:8px;color:var(--muted)}
+.log li .t{flex:none;font-variant-numeric:tabular-nums}
+.log li.w{color:var(--med);font-weight:600} .log li.ok{color:var(--ok)}
+@media (prefers-reduced-motion:reduce){.blink{animation:none}}
+@keyframes blink{50%{opacity:.25}}
+.blink{animation:blink 1s infinite}
+
+/* main */
+.wrap{min-width:0;padding:20px 24px 40px}
+.head{display:flex;gap:14px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}
+.eyebrow{font-size:11.5px;letter-spacing:.06em;color:var(--faint);font-weight:600}
+.head h1{font-size:22px;font-weight:700;letter-spacing:-.01em;margin-top:2px}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:2px 8px;border-radius:4px;background:var(--line-soft);color:var(--muted);white-space:nowrap}
+.tag.sample{border:1px dashed var(--line);background:none}
+.hact{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface);white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.run{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.pill.wait{color:var(--med);border-color:var(--med);background:var(--med-soft)}
+.pill.ok{color:var(--ok);border-color:var(--ok);background:var(--ok-soft)}
+.ws{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:16px;align-items:start}
+.ws.single{grid-template-columns:minmax(0,1fr)}
+@media (max-width:1100px){.ws{grid-template-columns:minmax(0,1fr)}}
+
+/* buttons, panels */
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:500}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;min-width:0;box-shadow:var(--shadow)}
+.panel h3{font-size:16px;font-weight:700}
+.lead{color:var(--muted);margin:4px 0 14px;font-size:13px}
+.sec{border-top:1px solid var(--line-soft);padding-top:14px;margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.sec h3{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sec h3 .sub{font-weight:400;font-size:12.5px;color:var(--muted)}
+.sec-t{font-size:11.5px;letter-spacing:.06em;color:var(--faint);font-weight:600}
+.verdict{border:1px solid var(--accent);background:var(--accent-soft);border-radius:10px;padding:12px 14px}
+.verdict .lbl{font-size:11.5px;letter-spacing:.06em;color:var(--accent);font-weight:600}
+.verdict p{margin:2px 0 0;font-size:15px;font-weight:600}
+.verdict.pending{border-style:dashed;border-color:var(--line);background:none}
+.verdict.pending .lbl{color:var(--muted)} .verdict.pending p{color:var(--muted);font-weight:400}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:0}
+.kv div{background:var(--surface);padding:9px 12px}
+.kv dt{font-size:11.5px;color:var(--muted)} .kv dd{margin:0;font-weight:600}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{font-size:12px;font-weight:500;color:var(--muted);background:var(--paper);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+td.hlc{background:var(--accent-soft)}
+th.hlc{color:var(--accent);background:var(--accent-soft)}
+tr.bad td{background:var(--high-soft)}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:4px;white-space:nowrap}
+.b-high{color:var(--surface);background:var(--high)}
+.b-med{color:var(--med);background:var(--med-soft)}
+.b-ok{color:var(--ok);background:var(--ok-soft)}
+.b-acc{color:var(--accent);background:var(--accent-soft)}
+.chip{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px;white-space:nowrap}
+.chip.HIGH{background:var(--high);color:var(--surface)}
+.chip.MED{background:var(--med-soft);color:var(--med)}
+.chip.옵션{background:var(--opt-soft);color:var(--opt)}
+.m{font-weight:700;margin-right:4px}
+.m.ok{color:var(--ok)} .m.opt{color:var(--opt)} .m.no{color:var(--muted)}
+.ev{border:1px solid var(--line);background:none;color:var(--accent);font-size:11.5px;padding:1px 8px;border-radius:999px}
+.ev:hover{border-color:var(--accent)}
+.ev.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.done-line{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ok);font-weight:600}
+.done-line svg{color:var(--ok)}
+.qlist{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.risks{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.risk{border:1px solid var(--line);border-left:3px solid var(--slate);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.risk b{font-size:13.5px}
+.risk span{font-size:12.5px;color:var(--muted)}
+.confirm{border:1px solid var(--accent);background:var(--accent-soft);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.confirm .lbl{font-size:11.5px;font-weight:600;color:var(--accent);letter-spacing:.06em}
+.confirm p{margin:0;font-weight:600}
+.confirm ul{margin:0;padding-left:18px}
+.confirm .acts{display:flex;gap:8px;flex-wrap:wrap}
+.confirm .msg{font-size:12.5px;color:var(--muted);margin:0;font-weight:400}
+
+/* paper */
+.docwrap{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow);position:sticky;top:16px}
+.dochead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.dochead .fn{display:flex;align-items:center;gap:8px;font-size:13px;min-width:0}
+.dochead .fn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:none;padding:4px 10px;font-size:12px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.seg button:disabled{opacity:.4}
+.evbox{border-bottom:1px solid var(--line-soft);padding:10px 14px;background:var(--surface);min-height:58px;font-size:13px}
+.evbox .ehead{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.evbox .judge{margin:4px 0 0}
+.evbox .src{font-size:11.5px;color:var(--muted);margin-top:6px}
+.evbox .ev-t{margin:2px 0 0;font-size:12.5px;color:var(--ink)}
+.doc{background:var(--paper);max-height:calc(100vh - 190px);overflow:auto;padding:22px 24px 30px;font-size:13.5px}
+.doc h2{font-size:18px;font-weight:700;margin:4px 0 2px}
+.doc h3{font-size:14px;font-weight:700;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line-soft)}
+.doc .rfqno{font-size:12px;color:var(--muted)}
+.mt,.pt{width:100%;margin-bottom:4px}
+.mt th,.pt th{width:30%;background:none;color:var(--muted);font-weight:500}
+.mt td,.pt td{font-size:13px}
+.mt th,.mt td,.pt th,.pt td{border-bottom:1px solid var(--line-soft)}
+.doc ul{margin:4px 0;padding-left:18px}
+.doc li{margin:2px 0}
+.hl{cursor:pointer;border-radius:2px;background:linear-gradient(transparent 58%,var(--c-soft) 58%);box-shadow:inset 0 -2px 0 var(--c);transition:background .15s}
+.hl:hover,.hl.sel{background:var(--c-soft)}
+.hl.core{--c:var(--high);--c-soft:var(--high-soft)}
+.hl.check{--c:var(--slate);--c-soft:var(--med-soft)}
+.hl.opt{--c:var(--opt);--c-soft:var(--opt-soft)}
+.hl.fixed{--c:var(--ok);--c-soft:var(--ok-soft)}
+.sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px;font-size:12.5px;color:var(--muted)}
+
+/* panel-specific */
+.bar{position:relative;height:26px;display:flex;border-radius:6px;background:var(--line-soft)}
+.bar div{height:100%}
+.bar .s1{background:var(--accent);border-radius:6px 0 0 6px}
+.bar .s2{background:color-mix(in srgb,var(--accent) 60%,var(--surface))}
+.bar .s3{background:color-mix(in srgb,var(--accent) 35%,var(--surface))}
+.bar .tgt{position:absolute;top:-6px;bottom:-6px;border-left:2px solid var(--ink)}
+.bar .tgt span{position:absolute;left:6px;top:-18px;font-size:11.5px;white-space:nowrap}
+.legend{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:12.5px}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.quote{border:1px solid var(--line);border-radius:10px;padding:16px 18px;background:var(--paper);display:flex;flex-direction:column;gap:12px}
+.quote .qh{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:8px}
+.quote .qh b{font-size:16px;letter-spacing:.2em}
+.quote .cond{border:1px dashed var(--slate);border-radius:8px;padding:10px 12px;background:var(--surface)}
+.quote .cond ul{margin:4px 0 0;padding-left:18px;font-size:13px}
+.tl{position:relative;height:118px;margin:4px 10px}
+.tl .axis{position:absolute;left:0;right:0;top:58px;height:2px;background:var(--line)}
+.tl .mk{position:absolute;top:0;bottom:0;width:0}
+.tl .mk i{position:absolute;left:-6px;top:52px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--muted)}
+.tl .mk.good i{border-color:var(--ok);background:var(--ok)}
+.tl .mk.crit i{border-color:var(--high);background:var(--high)}
+.tl .mk.late i{border-color:var(--med);background:var(--surface)}
+.tl .mk.crit::after{content:"";position:absolute;left:-1px;top:8px;bottom:8px;border-left:2px dashed var(--slate)}
+.tl .mk span{position:absolute;white-space:nowrap;font-size:12px;line-height:1.3;transform:translateX(-50%)}
+.tl .mk span.up{bottom:70px} .tl .mk span.dn{top:72px}
+.tl .mk span b{display:block;font-weight:600}
+.tl .mk span em{font-style:normal;color:var(--muted)}
+.tl .mk.edge-l span{transform:none} .tl .mk.edge-r span{transform:translateX(-100%)}
+.stamp{display:flex;gap:16px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--paper)}
+.sealmark{width:84px;height:84px;border-radius:50%;border:3px solid var(--accent);color:var(--accent);display:grid;place-items:center;text-align:center;font-weight:700;font-size:14px;line-height:1.25;transform:rotate(-8deg);flex:none}
+.flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.flow div{border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12.5px;background:var(--paper)}
+.flow b{display:block;font-size:13px;margin-bottom:2px}
+@media (max-width:760px){.flow{grid-template-columns:minmax(0,1fr)}}
+.agents-foot{font-size:12px;color:var(--faint)}
+
+.foot{color:var(--faint);font-size:12px;margin-top:18px}
+.foot code{font-size:11.5px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:calc(100% - 32px)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:1100px){
+  .shell{grid-template-columns:64px minmax(0,1fr)}
+  .side{display:none}
+}
+@media (max-width:620px){
+  .shell{grid-template-columns:52px minmax(0,1fr)}
+  .rail{padding-block:10px}
+  .ri{width:38px;height:38px}
+  .wrap{padding:14px 12px 32px}
+  .doc{max-height:560px;padding:18px 14px}
+  .docwrap{position:static}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail" aria-label="주 메뉴">
+    <button class="orb" data-rail="ws" title="워크스페이스">RA</button>
+    <button class="ri" id="rail-ws" data-rail="ws" aria-pressed="true" title="검토 워크스페이스"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/></svg></button>
+    <button class="ri" id="rail-data" data-rail="data" aria-pressed="false" title="데이터 구조"><svg class="i" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg></button>
+    <hr>
+    <div class="me" title="영업 담당">담당</div>
+  </aside>
+
+  <aside class="side" aria-label="검토 단계">
+    <div class="side-brand">
+      <div class="wm">RFQ Agent</div>
+      <div class="ct">한별모터스 · 전동식 워터펌프</div>
+      <div class="cs">대성오토텍 영업팀 · 요청서 검토</div>
+      <span class="pill-soft">Human-in-the-loop · 사내 규정 RAG</span>
+    </div>
+    <ol class="vsteps" id="vsteps"></ol>
+    <div class="logbox">
+      <h2>실행 로그</h2>
+      <ol class="log" id="log"></ol>
+    </div>
+  </aside>
+
+  <main class="wrap" id="app"></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ===================== 아이콘 ===================== */
+const I = {
+  grid:'<rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/>',
+  doc:'<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M8 13h8M8 17h6"/>',
+  db:'<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>',
+  check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  alert:'<path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17.5v.01"/>',
+  arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+  play:'<path d="M7 5v14l11-7z"/>',
+  refresh:'<path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/>',
+  lock:'<rect x="5" y="11" width="14" height="9" rx="1"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  seal:'<path d="M9 4h6v5a3 3 0 0 0 1 2l1 1H7l1-1a3 3 0 0 0 1-2z"/><path d="M5 15h14v3H5zM7 21h10"/>'
+};
+const ic = (k, extra='') => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" ${extra}>${I[k]}</svg>`;
+
+/* ===================== 데이터 (RFQ 데모 · 데이터 컬럼 정의서 기준, 전부 가상) ===================== */
+const SG_NAMES = {1:'RFQ 검토',2:'공급·대안 분석',3:'견적 작성·검증',4:'승인·등록'};
+const SCRIPT = [
+  {sg:1,node:'parse_rfq',label:'요청서 추출'},
+  {sg:1,node:'validate_rules',label:'누락·이상값 검증'},
+  {sg:1,node:'human_confirm',label:'담당자 확인',interrupt:true},
+  {sg:1,node:'match_spec',label:'모델·옵션 매칭'},
+  {sg:1,node:'check_contract',label:'계약 조건 검토'},
+  {sg:1,node:'build_report',label:'결과 정리'},
+  {sg:2,node:'load_bom',label:'BOM 조회'},
+  {sg:2,node:'calc_supply',label:'가용재고·납기 계산'},
+  {sg:2,node:'evaluate_alt',label:'대안 비교'},
+  {sg:3,node:'draft_quote',label:'견적 초안'},
+  {sg:3,node:'validate_quote',label:'견적 검증'},
+  {sg:4,node:'request_approval',label:'담당자 승인',interrupt:true},
+  {sg:4,node:'recheck_supply',label:'재고 재확인'},
+  {sg:4,node:'register_quote',label:'견적 등록'}
+];
+const VERDICT = {
+  1:'EWP-12-B에 고온·방수 옵션 2개를 붙이면 고객 요구를 모두 충족합니다. 단가 37,300원.',
+  2:'고온용 제어칩이 500개 부족하고 입고도 늦습니다. 부족분을 대체 칩으로 채우면 납기를 맞출 수 있습니다.',
+  3:'단가 37,300원으로 목표가 38,000원 안에 들어오고, 검증 4개 항목을 모두 통과했습니다.',
+  4:'견적 승인 후 재고 변동이 없어 그대로 등록했습니다.'
+};
+/* 사내 문서 청크 (rag MCP · doc_chunks) */
+const EV = {
+  'dsn-001':['설계 표준','1. 적합성 판정 원칙','모든 항목이 기본 사양으로 충족되면 표준, 옵션을 붙여 충족되면 파생 사양, 케이스나 모터를 바꿔야 하면 신규 개발로 분류한다. 후보가 여럿이면 옵션 수가 적고 단가가 낮은 모델을 우선 추천한다.'],
+  'dsn-002':['설계 표준','2. 유량 판단','차량용 냉각 펌프의 유량은 통상 분당 리터(L/min)로 표기하며, 시간당 리터(L/h)로 적힌 값이 1 L/min 미만으로 환산되면 단위 표기 오류일 가능성이 높으므로 고객 확인 대상이다.'],
+  'dsn-003':['설계 표준','3. 작동 온도','요구 최고 온도가 표준 모델 상한을 넘으면 고온 대응 옵션(OPT-HT)을 우선 검토한다. OPT-HT는 제어칩을 고온용으로 교체해 상한을 125℃까지 올린다.'],
+  'dsn-004':['설계 표준','4. 방수 등급','고압 세차 노출 위치에 장착되는 경우 IP6K9K가 필요하며, 표준 모델이 IP67이면 방수 강화 옵션(OPT-IP9K)을 적용하고 방수 시험을 다시 수행한다.'],
+  'dsn-005':['설계 표준','5. 소음','소음 요구를 초과하는 모델은 다른 항목이 충족되더라도 추천 대상에서 제외한다.'],
+  'dsn-006':['설계 표준','6. 크기와 무게','무게는 옵션 추가 무게를 더한 값으로 판정한다. 크기나 무게를 줄이려면 케이스 재설계가 필요하므로 신규 개발로 분류한다.'],
+  'dsn-007':['설계 표준','7. 커넥터와 냉각수','커넥터와 냉각수가 미기재되었거나 TBD인 경우 표준값(4핀, 에틸렌글리콜 50%)을 가정해 검토하되, 반드시 고객 확인 질의 목록에 포함한다.'],
+  'cat-003':['제품 카탈로그','3. EWP-12-B (중형)','시리즈의 주력 모델. 분당 25리터 유량과 42 dB의 낮은 소음, LIN·PWM 통신 지원. 고온 대응 옵션과 방수 강화 옵션을 붙일 수 있다.'],
+  'cat-005':['제품 카탈로그','5. 옵션 OPT-HT','제어칩을 고온용으로 바꿔 상한을 125℃까지 높인다. 고온용 제어칩은 업계 공급이 빠듯해 조달 기간이 길 수 있다.'],
+  'pol-002':['영업·구매 규정','제11조 연간 가격 인하','연간 가격 인하율(CR)은 연 3% 이내에서 수용할 수 있다. 초과 시 영업본부장 승인이 필요하다.'],
+  'pol-003':['영업·구매 규정','제12조 품질 보증 기간','보증 기간은 3년 또는 100,000 km를 넘을 수 없으며, 초과 시 품질본부장의 승인이 필요하고 견적 단가에 보증 비용을 반영해야 한다.'],
+  'pol-004':['영업·구매 규정','제13조 지연 배상','납기 지연 배상 책임은 계약 금액의 10%를 상한으로 한다. 상한이 없거나 10%를 넘는 조항은 수용할 수 없다.'],
+  'alt-002':['대체 부품 기준','2. 제어칩 대체','P-MCU-G1의 대체품은 누리칩스 P-MCU-G1-ALT. 같은 고온 등급, 핀 배치 동일. 적용 전 2주 검증 시험이 필요하고 개당 원가가 300원 높다.'],
+  'alt-003':['대체 부품 기준','3. 대안 비교 기준','대안은 납기 충족, 추가 원가, 검증 기간, 품질 위험 순으로 비교한다. 납기를 맞출 수 없는 대안은 우선순위에서 밀린다.']
+};
+/* 요청서 원문 위의 표시: 등급 · 판단 · 근거 */
+const HL = {
+  F:{cls:'core', sev:'HIGH', label:'유량 단위', judge:'22 L/h는 0.37 L/min으로 환산되어 단위 오기 의심. 22 L/min으로 가정하고 담당자 확인', ev:'dsn-002', asm:'22 L/min 이상 (수두 70 kPa 기준)'},
+  C:{cls:'check',sev:'MED', label:'커넥터', judge:'TBD. 표준 4핀으로 가정하고 고객에게 확인', ev:'dsn-007', asm:'4핀 (표준 가정)'},
+  K:{cls:'check',sev:'MED', label:'냉각수', judge:'미기재. 에틸렌글리콜 50%로 가정하고 고객에게 확인', ev:'dsn-007', asm:'에틸렌글리콜 50% (가정)'},
+  V:{cls:'check',sev:'MED', label:'총 공급 물량', judge:'900,000개 ≠ 120,000개 × 6년(720,000개)', ev:null},
+  Q:{cls:'check',sev:'MED', label:'PPAP 일정', judge:'PPAP 2027-10-15가 SOP 2027-09-01보다 늦음', ev:null},
+  W:{cls:'check',sev:'MED', label:'품질 보증', judge:'5년 / 150,000 km는 사내 한도 3년 / 100,000 km를 초과', ev:'pol-003'},
+  D:{cls:'check',sev:'MED', label:'지연 배상', judge:'배상 상한 없음. 사내 한도는 계약금액의 10%', ev:'pol-004'},
+  T:{cls:'opt',  sev:'옵션', label:'작동 온도', judge:'120℃ 요구. 표준 상한 110℃를 넘으므로 고온 옵션 OPT-HT 적용', ev:'dsn-003'},
+  P:{cls:'opt',  sev:'옵션', label:'방수 등급', judge:'IP6K9K 요구. 표준 IP67이므로 방수 강화 옵션 OPT-IP9K 적용', ev:'dsn-004'}
+};
+const ISSUES = [
+  ['HIGH','이상값','유량','22 L/h (= 0.37 L/min)','단위 오기 의심 → 22 L/min으로 가정','dsn-002'],
+  ['MED','누락','커넥터','TBD','표준 4핀으로 가정, 고객 확인','dsn-007'],
+  ['MED','누락','냉각수','미기재','에틸렌글리콜 50%로 가정, 고객 확인','dsn-007'],
+  ['MED','이상값','총 공급 물량','900,000개','120,000 × 6년 = 720,000개와 불일치',''],
+  ['MED','이상값','PPAP 일정','2027-10-15','양산 시작 2027-09-01보다 늦음',''],
+  ['MED','계약','품질 보증','5년 / 150,000 km','한도 3년 / 100,000 km 초과','pol-003'],
+  ['MED','계약','지연 배상','상한 없음','한도 계약금액 10%','pol-004']
+];
+// [항목, 요구, A, B, C, 근거]  각 셀: [표시값, ok|opt|no]
+const MATCH = [
+  ['유량','≥ 22 L/min',['15','no'],['25','ok'],['35','ok'],''],
+  ['압력','≥ 70 kPa',['50','no'],['80','ok'],['100','ok'],''],
+  ['작동 온도 상한','≥ 120 ℃',['105 → 125 (OPT-HT)','opt'],['110 → 125 (OPT-HT)','opt'],['125','ok'],'dsn-003'],
+  ['방수','IP6K9K',['IP67 (옵션 불가)','no'],['IP67 → IP6K9K (OPT-IP9K)','opt'],['IP6K9K','ok'],'dsn-004'],
+  ['소음','≤ 45 dB',['43','ok'],['42 → 43','ok'],['48','no'],'dsn-005'],
+  ['통신','LIN',['PWM','no'],['LIN, PWM','ok'],['LIN','ok'],''],
+  ['크기','≤ 120×100×95 mm',['100×85×80','ok'],['110×90×90','ok'],['118×98×94','ok'],''],
+  ['무게','≤ 0.8 kg',['0.55','ok'],['0.70 → 0.75','ok'],['0.95','no'],'dsn-006']
+];
+// [부품코드, 부품명, 재고(on_hand), 배정(allocated), 입고 예정]
+const PARTS = [
+  ['P-MTR-BL12','모터',18000,6000,'10,000 · 2026-11-20'],
+  ['P-MCU-G1','제어칩 (고온용)',9000,7500,'5,000 · 2027-01-20'],
+  ['P-IMP-25','임펠러',22000,4000,'–'],
+  ['P-HSG-AL','알루미늄 케이스',15000,5000,'8,000 · 2026-12-01'],
+  ['P-SEAL-9K','방수 실링 (강화)',8000,1000,'–'],
+  ['P-CON-4P','4핀 커넥터',30000,10000,'–']
+];
+const NEED = 2000;
+const fmt = n => n.toLocaleString('ko-KR');
+
+/* ===================== 상태 ===================== */
+function fresh(){ return {idx:0, started:false, running:null, waiting:null, done:new Set(), view:'intro', lastSg:1, finished:false, sel:null, ev:null, asm:false, msg:{}, log:[]}; }
+let S = fresh();
+let timer = null;
+const has = n => S.done.has(n);
+const sgState = sg => {
+  const nodes = SCRIPT.filter(s=>s.sg===sg);
+  if (S.waiting && S.waiting.sg===sg) return 'wait';
+  if (nodes.every(n=>has(n.node))) return 'done';
+  if (S.running && S.running.sg===sg) return 'run';
+  if (nodes.some(n=>has(n.node))) return 'run';
+  return 'idle';
+};
+const stamp = () => new Date().toTimeString().slice(0,8);
+function log(text, cls=''){ S.log.unshift({t:stamp(), text, cls}); }
+
+/* ===================== 이벤트 처리 (백엔드 연결 지점) ===================== */
+function handleEvent(evt){
+  const step = SCRIPT.find(s=>s.sg===evt.sg && s.node===evt.node);
+  if(!step) return;
+  S.started = true;
+  if(evt.status==='running'){
+    S.running = step; S.lastSg = step.sg;
+    if(S.view==='intro' || typeof S.view==='number') S.view = step.sg;
+    log(`SG${step.sg} · ${step.label} 시작`);
+  }
+  if(evt.status==='interrupt'){ S.running=null; S.waiting=step; if(typeof S.view==='number' || S.view==='intro') S.view=step.sg; log(`SG${step.sg} · ${step.label} 대기`,'w'); }
+  if(evt.status==='done'){
+    S.done.add(step.node); S.running=null; if(S.waiting===step) S.waiting=null;
+    log(`SG${step.sg} · ${step.label} 완료`,'ok');
+    if(SCRIPT.filter(s=>s.sg===step.sg).every(s=>has(s.node))) log(`SG${step.sg} ${SG_NAMES[step.sg]} 완료`,'ok');
+    if(step.node==='register_quote') S.finished = true;
+  }
+  render();
+}
+window.handleEvent = handleEvent;
+
+/* ===================== 목업 실행기 ===================== */
+const DELAY = 750;
+function runNext(){
+  if(S.idx>=SCRIPT.length) return;
+  const step = SCRIPT[S.idx];
+  handleEvent({sg:step.sg,node:step.node,status:'running'});
+  timer = setTimeout(()=>{
+    if(step.interrupt){ handleEvent({sg:step.sg,node:step.node,status:'interrupt'}); return; }
+    handleEvent({sg:step.sg,node:step.node,status:'done'});
+    S.idx++; runNext();
+  }, DELAY);
+}
+function resume(){
+  const step = S.waiting; if(!step) return;
+  handleEvent({sg:step.sg,node:step.node,status:'done'});
+  S.idx++; runNext();
+}
+
+/* ===================== 공통 렌더 조각 ===================== */
+const chip = s => `<span class="chip ${s}">${s}</span>`;
+const mark = ([v,k]) => `<span class="m ${k}">${k==='ok'?'✓':k==='opt'?'◐':'✗'}</span>${v}`;
+const evBtn = id => id ? `<button class="ev${S.ev===id?' on':''}" data-ev="${id}">근거</button>` : '';
+/* 요청서 원문의 값 하나: 검토 전에는 평문, 검토 후에는 표시 */
+function hv(id, orig){
+  const d = HL[id];
+  if(!S.started) return orig;
+  const confirmed = has('human_confirm');
+  const cls = confirmed && d.asm ? 'fixed' : d.cls;
+  const txt = S.asm && confirmed && d.asm ? d.asm : orig;
+  return `<span class="hl ${cls}${S.sel===id?' sel':''}" data-risk="${id}" role="button" tabindex="0">${txt}</span>`;
+}
+
+/* ===================== 좌측 단계 (SG + 노드) ===================== */
+function renderSteps(){
+  document.getElementById('vsteps').innerHTML = [1,2,3,4].map(sg=>{
+    const st = sgState(sg);
+    const cur = S.view===sg;
+    const nodes = SCRIPT.filter(s=>s.sg===sg).map(s=>{
+      const c = has(s.node)?'done':(S.waiting===s?'wait':(S.running===s?'run':''));
+      return `<li class="${c}">${s.label}</li>`;
+    }).join('');
+    return `<li class="${st==='done'?'done':''}${cur?' cur':''}">
+      <button data-sgstep="${sg}" ${st==='idle'?'disabled':''} aria-current="${cur?'step':'false'}">
+        <span class="vc">${st==='done'?ic('check','style="width:14px;height:14px"'):sg}</span>
+        <span class="vl"><small>${{idle:'대기',run:'진행 중',wait:'확인 필요',done:'완료'}[st]}</small><b>SG${sg} ${SG_NAMES[sg]}</b></span>
+      </button>
+      <ul class="nodes">${nodes}</ul></li>`;
+  }).join('');
+}
+function renderLog(){
+  document.getElementById('log').innerHTML = S.log.length
+    ? S.log.map(l=>`<li class="${l.cls}"><span class="t">${l.t}</span><span>${l.text}</span></li>`).join('')
+    : '<li>아직 실행 기록이 없습니다.</li>';
+}
+
+/* ===================== 상단 헤더 ===================== */
+function headHTML(){
+  let t='검토 전', c='';
+  if(S.finished){ t='등록 완료'; c='ok'; }
+  else if(S.waiting){ t='확인 필요'; c='wait'; }
+  else if(S.started){ t='진행 중'; c='run'; }
+  return `<div class="head">
+    <div>
+      <div class="eyebrow mono">RFQ HB-EV7-EWP-001</div>
+      <h1>한별모터스 · 전동식 워터펌프 (EWP, 12V)</h1>
+      <div class="meta"><span class="tag">대성오토텍 영업팀 접수</span><span class="tag">발행 2026-10-12</span><span class="tag">회신 마감 2026-10-30</span><span class="tag num">목표 38,000원</span><span class="tag sample">샘플 데이터</span></div>
+    </div>
+    <div class="hact">
+      <span class="pill ${c}">${t}</span>
+      <button class="btn primary" data-start ${S.started?'disabled':''}>${ic('play')}검토 시작</button>
+      <button class="btn" data-reset>처음부터</button>
+    </div>
+  </div>`;
+}
+
+/* ===================== 좌측: RFQ 원문 + 근거 ===================== */
+function evHTML(){
+  if(!S.sel && !S.ev) return '<p class="note">본문의 강조 표시나 "근거" 버튼을 누르면 판단 근거와 사내 문서 원문이 여기에 나옵니다.</p>';
+  let h='';
+  if(S.sel && HL[S.sel]){ const d=HL[S.sel]; h+=`<div class="ehead">${chip(d.sev==='옵션'?'옵션':d.sev)}<b>${d.label}</b></div><p class="judge">${d.judge}</p>`; }
+  if(S.ev && EV[S.ev]){ const e=EV[S.ev]; h+=`<div class="src">${e[0]} · ${e[1]} · <span class="mono">${S.ev}</span></div><p class="ev-t">${e[2]}</p>`; }
+  return h;
+}
+function paperHTML(){
+  return `<h2>견적요청서 (RFQ)</h2>
+    <div class="rfqno mono">HB-EV7-EWP-001 · 전동식 워터펌프 (EWP, 12V)</div>
+    <table class="mt"><tbody>
+      <tr><th>발행사</th><td>한별모터스 구매본부</td><th>수신사</th><td>대성오토텍 영업팀</td></tr>
+      <tr><th>프로젝트</th><td>HB-EV7 (중형 전기 SUV)</td><th>요청 품목</th><td>전동식 워터펌프 (EWP, 12V)</td></tr>
+      <tr><th>발행일</th><td class="num">2026-10-12</td><th>회신 마감</th><td class="num">2026-10-30</td></tr>
+    </tbody></table>
+
+    <h3>1. 물량 및 일정</h3>
+    <table class="pt"><tbody>
+      <tr><th>연간 예상 물량 (EAU)</th><td class="num">120,000 개</td></tr>
+      <tr><th>공급 기간</th><td>6 년</td></tr>
+      <tr><th>총 공급 물량</th><td class="num">${hv('V','900,000 개')}</td></tr>
+      <tr><th>시작품 수량 / 납품일</th><td class="num">2,000 개 / 2026-12-15</td></tr>
+      <tr><th>양산 시작 (SOP)</th><td class="num">2027-09-01</td></tr>
+      <tr><th>양산 승인 (PPAP) 완료</th><td class="num">${hv('Q','2027-10-15')}</td></tr>
+    </tbody></table>
+
+    <h3>2. 기술 사양</h3>
+    <table class="pt"><tbody>
+      <tr><th>유량</th><td>${hv('F','22 L/h 이상 (수두 70 kPa 기준)')}</td></tr>
+      <tr><th>작동 전압</th><td>9 ~ 16 V (정격 12 V)</td></tr>
+      <tr><th>작동 온도</th><td class="num">${hv('T','-40 ~ 120 ℃')}</td></tr>
+      <tr><th>방수 등급</th><td>${hv('P','IP6K9K (고압 세차 대응)')}</td></tr>
+      <tr><th>소음</th><td>45 dB(A) 이하</td></tr>
+      <tr><th>통신 방식</th><td>LIN 2.2</td></tr>
+      <tr><th>최대 외형 크기</th><td class="num">120 × 100 × 95 mm 이내</td></tr>
+      <tr><th>최대 무게</th><td>0.8 kg 이하</td></tr>
+      <tr><th>커넥터</th><td>${hv('C','TBD')}</td></tr>
+      <tr><th>냉각수</th><td>${hv('K','미기재')}</td></tr>
+    </tbody></table>
+    <p class="note" style="margin-top:6px">장착 위치는 배터리팩 하단 냉각 라인이며, 고압 세차 시 직접 물이 닿을 수 있다.</p>
+
+    <h3>3. 품질 및 인증</h3>
+    <ul><li>공급사는 IATF 16949 인증을 보유해야 한다.</li><li>양산 승인은 PPAP Level 3 기준으로 제출한다.</li><li>부품 소재 정보는 IMDS에 등록한다.</li></ul>
+
+    <h3>4. 납품 조건</h3>
+    <table class="pt"><tbody>
+      <tr><th>납품지</th><td>한별모터스 울산 2공장</td></tr>
+      <tr><th>인도 조건</th><td>DAP (공급사가 납품지까지 운송)</td></tr>
+      <tr><th>포장</th><td>회수형 플라스틱 박스, 박스당 20개</td></tr>
+    </tbody></table>
+
+    <h3>5. 상업 조건</h3>
+    <table class="pt"><tbody>
+      <tr><th>목표 단가</th><td class="num">38,000 원 / 개</td></tr>
+      <tr><th>연간 가격 인하 (CR)</th><td>매년 3%</td></tr>
+      <tr><th>결제 조건</th><td>월말 마감, 익월 60일 현금</td></tr>
+      <tr><th>통화</th><td>KRW</td></tr>
+    </tbody></table>
+
+    <h3>6. 계약 조건</h3>
+    <p><b>6.1 품질 보증</b> · ${hv('W','공급사는 양산 시작일로부터 5년 또는 주행거리 150,000 km 중 먼저 도래하는 기간 동안 제품 품질을 보증한다.')}</p>
+    <p><b>6.2 납기 지연</b> · ${hv('D','공급사 귀책으로 납기가 지연될 경우, 공급사는 지연으로 발생한 발주사의 손해 전액을 배상한다. (배상 상한 없음)')}</p>
+    <p><b>6.3 단종 통지</b> · 공급사는 주요 부품의 단종이 예상될 경우 최소 12개월 전에 발주사에 서면 통지한다.</p>
+    <div class="sign"><div>발주사 · 한별모터스 구매본부 전장부품팀</div><div>수신 · 대성오토텍 영업팀</div></div>`;
+}
+function docBox(){
+  const confirmed = has('human_confirm');
+  return `<div class="docwrap">
+    <div class="dochead">
+      <div class="fn">${ic('doc')}<span>RFQ_HB-EV7-EWP-001.md</span></div>
+      <div class="seg" role="group" aria-label="문서 보기">
+        <button data-docview="orig" aria-pressed="${!S.asm}">원문</button>
+        <button data-docview="asm" aria-pressed="${S.asm}" ${confirmed?'':'disabled'}>가정 반영</button>
+      </div>
+    </div>
+    <div class="evbox">${evHTML()}</div>
+    <div class="doc" id="doc">${paperHTML()}</div>
+  </div>`;
+}
+
+/* ===================== 우측 패널 ===================== */
+function introHTML(){
+  return `<div class="verdict pending"><span class="lbl">접수된 요청서</span><p>상단의 <b>검토 시작</b>을 누르면 Agent가 SG1부터 순서대로 검토합니다.</p></div>
+  <div class="sec"><h3>요청 개요</h3>
+    <dl class="kv">
+      <div><dt>연간 물량</dt><dd class="num">120,000개</dd></div>
+      <div><dt>공급 기간</dt><dd>6년</dd></div>
+      <div><dt>시작품</dt><dd class="num">2,000개 · 2026-12-15</dd></div>
+      <div><dt>양산 시작</dt><dd class="num">2027-09-01</dd></div>
+      <div><dt>목표 단가</dt><dd class="num">38,000원</dd></div>
+      <div><dt>납품지</dt><dd>울산 2공장</dd></div>
+    </dl></div>
+  <div class="sec"><h3>계약 조건 <span class="sub">요청서 원문</span></h3>
+    <ul class="qlist" style="list-style:disc"><li>품질 보증 5년 또는 150,000 km</li><li>납기 지연 시 손해 전액 배상 (상한 없음)</li><li>연간 가격 인하 3%, 결제 익월 60일</li></ul></div>
+  <div class="sec"><h3>용어 <span class="sub">비제조 팀원용</span></h3>
+    <div class="tw"><table><tbody>
+      <tr><th>RFQ</th><td>견적요청서. 고객이 "이런 조건으로 얼마에, 언제까지 줄 수 있나"를 묻는 문서</td></tr>
+      <tr><th>워터펌프 (EWP)</th><td>전기차 배터리를 식히는 냉각수를 돌리는 펌프</td></tr>
+      <tr><th>유량 / 수두</th><td>펌프가 1분에 보내는 물의 양(L/min) / 그 물을 밀어내는 압력(kPa)</td></tr>
+      <tr><th>IP67 &lt; IP6K9K</th><td>방수 등급. IP6K9K는 고압 세차까지 견딤</td></tr>
+      <tr><th>EAU</th><td>연간 예상 물량</td></tr>
+      <tr><th>SOP / PPAP</th><td>양산 시작일 / 양산 승인 (SOP 전에 끝나야 정상)</td></tr>
+      <tr><th>BOM</th><td>제품 1개를 만드는 데 필요한 부품 목록</td></tr>
+      <tr><th>가용 재고</th><td>창고 재고 − 이미 다른 주문에 배정된 수량</td></tr>
+    </tbody></table></div></div>`;
+}
+function verdict(sg){
+  return sgState(sg)==='done'
+    ? `<div class="verdict"><span class="lbl">SG${sg} 결론</span><p>${VERDICT[sg]}</p></div>`
+    : `<div class="verdict pending"><span class="lbl">SG${sg} ${SG_NAMES[sg]}</span><p>${S.waiting&&S.waiting.sg===sg?'담당자 확인을 기다리는 중입니다.':'분석 중입니다. 노드가 끝날 때마다 아래에 결과가 추가됩니다.'}</p></div>`;
+}
+function sg1(){
+  let h = verdict(1);
+  if(has('parse_rfq')) h += `<div class="sec"><h3>RFQ 요약 <span class="sub">rfq_schema.json으로 추출</span></h3>
+    <dl class="kv"><div><dt>고객사</dt><dd>한별모터스</dd></div><div><dt>품목</dt><dd>EWP 12V</dd></div>
+    <div><dt>연간 물량</dt><dd class="num">120,000개</dd></div><div><dt>시작품</dt><dd class="num">2,000개 · 12-15</dd></div>
+    <div><dt>목표 단가</dt><dd class="num">38,000원</dd></div><div><dt>추출 항목</dt><dd>6개 섹션</dd></div></dl></div>`;
+  if(has('validate_rules') || S.waiting?.node==='human_confirm') h += `<div class="sec"><h3>검증 이슈 <span class="badge b-high">HIGH 1</span><span class="badge b-med">MED 6</span></h3>
+    <div class="tw"><table><thead><tr><th>심각도</th><th>구분</th><th>항목</th><th>원문 값</th><th>판단·제안</th><th></th></tr></thead><tbody>
+    ${ISSUES.map(i=>`<tr class="${i[0]==='HIGH'?'bad':''}"><td><span class="badge ${i[0]==='HIGH'?'b-high':'b-med'}">${i[0]}</span></td><td>${i[1]}</td><td>${i[2]}</td><td class="num">${i[3]}</td><td>${i[4]}</td><td>${evBtn(i[5])}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="note">통과: 연간 가격 인하 3% (제11조 한도 이내), 결제 60일, 단종 통지 12개월, 전압 범위</p></div>`;
+  if(S.waiting?.node==='human_confirm') h += `<div class="confirm" role="group" aria-label="담당자 확인">
+    <span class="lbl">확인 필요 · 흐름이 멈췄습니다</span>
+    <p>유량이 22 L/h로 적혀 있습니다. 22 L/min으로 보고 검토를 계속할까요?</p>
+    <p class="msg">커넥터는 표준 4핀, 냉각수는 에틸렌글리콜 50%로 함께 가정합니다.</p>
+    <div class="acts"><button class="btn primary" data-act="approve1">22 L/min으로 진행</button><button class="btn" data-act="alt1">값 직접 입력</button></div>
+    ${S.msg.alt1?'<p class="msg">데모에서는 직접 입력을 시연하지 않습니다. 22 L/min으로 진행해 주세요.</p>':''}</div>`;
+  if(has('human_confirm')) h += `<div class="done-line">${ic('check')} 담당자 승인: 유량 22 L/min · 커넥터 4핀 · 냉각수 에틸렌글리콜 50% 가정</div>`;
+  if(has('match_spec')) h += `<div class="sec"><h3>모델 적합성 <span class="badge b-acc">파생 사양</span> ${evBtn('dsn-001')}</h3>
+    <div class="tw"><table><thead><tr><th>항목</th><th>요구</th><th>EWP-12-A 소형</th><th class="hlc">EWP-12-B 중형</th><th>EWP-12-C 대형</th><th></th></tr></thead><tbody>
+    ${MATCH.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[1]}</td><td>${mark(r[2])}</td><td class="hlc">${mark(r[3])}</td><td>${mark(r[4])}</td><td>${evBtn(r[5])}</td></tr>`).join('')}
+    <tr><td><b>단가</b></td><td class="num">≤ 38,000원</td><td>–</td><td class="hlc num"><b>37,300원</b></td><td class="num">45,000원</td><td>${evBtn('cat-003')}</td></tr>
+    <tr><td><b>판정</b></td><td></td><td><span class="badge b-high">탈락</span></td><td class="hlc"><span class="badge b-ok">추천 · OPT-HT + OPT-IP9K</span></td><td><span class="badge b-high">탈락</span></td><td></td></tr>
+    </tbody></table></div>
+    <p class="note">✓ 기본 충족 · ◐ 옵션으로 충족 · ✗ 미달</p></div>`;
+  if(has('check_contract')) h += `<div class="sec"><h3>계약 리스크</h3><div class="risks">
+    <div class="risk"><b>품질 보증 5년 / 150,000 km</b><span>사내 한도 3년 / 100,000 km 초과</span> ${evBtn('pol-003')}</div>
+    <div class="risk"><b>지연 배상 상한 없음</b><span>사내 한도 계약금액 10%</span> ${evBtn('pol-004')}</div></div></div>`;
+  if(has('build_report')) h += `<div class="sec"><h3>고객 확인 질의서 초안 <button class="ev" data-act="copyq">${ic('copy','style="width:12px;height:12px"')} 복사</button>${S.msg.copied?'<span class="sub">복사했습니다</span>':''}</h3>
+    <ol class="qlist" id="qlist"><li>유량 단위가 L/min이 맞는지 확인 부탁드립니다. (사양서 표기: 22 L/h)</li><li>커넥터 사양(핀 수, 형상)을 알려주십시오.</li><li>사용 냉각수 종류를 알려주십시오.</li><li>총 공급 물량 900,000개와 연간 120,000개 × 6년(720,000개)이 다릅니다. 어느 쪽이 맞는지 확인 부탁드립니다.</li><li>PPAP 완료일(2027-10-15)이 양산 시작일(2027-09-01)보다 늦습니다. 일정 확인 부탁드립니다.</li></ol></div>`;
+  return h;
+}
+function timeline(){
+  const t = d => Date.parse(d)/864e5, lo=t('2026-10-12'), hi=t('2027-01-27');
+  const x = d => ((t(d)-lo)/(hi-lo)*100).toFixed(1)+'%';
+  const mk = (d,cls,pos,title,sub,edge='') => `<div class="mk ${cls} ${edge}" style="left:${x(d)}"><i></i><span class="${pos}"><b>${title}</b><em class="num">${sub}</em></span></div>`;
+  return `<div class="tw" style="padding:6px 8px"><div class="tl" role="img" aria-label="시작품 납기 12월 15일, 고온 칩 입고 1월 20일로 36일 늦음">
+    <div class="axis"></div>
+    ${mk('2026-10-19','','up','오늘','10-19','edge-l')}
+    ${mk('2026-11-02','good','dn','대체 칩 검증 완료','11-02')}
+    ${mk('2026-12-15','crit','up','시작품 납기','12-15')}
+    ${mk('2027-01-20','late','dn','고온 칩 입고 (36일 늦음)','2027-01-20','edge-r')}
+  </div></div>`;
+}
+function sg2(){
+  let h = verdict(2);
+  if(has('load_bom')) h += `<div class="sec"><h3>옵션 반영 BOM <span class="sub">EWP-12-B 기본 BOM에서 2개 교체</span></h3>
+    <div class="tw"><table><thead><tr><th>옵션</th><th>빠지는 부품</th><th>들어가는 부품</th></tr></thead><tbody>
+    <tr><td>OPT-HT</td><td class="mono">P-MCU-STD</td><td class="mono">P-MCU-G1</td></tr>
+    <tr><td>OPT-IP9K</td><td class="mono">P-SEAL-STD</td><td class="mono">P-SEAL-9K</td></tr></tbody></table></div></div>`;
+  if(has('calc_supply')) h += `<div class="sec"><h3>부품 충족 현황 <span class="sub">시작품 ${fmt(NEED)}개 기준 · 가용 = 재고 − 배정</span></h3>
+    <div class="tw"><table><thead><tr><th>부품</th><th class="r">필요</th><th class="r">재고</th><th class="r">배정</th><th class="r">가용</th><th>입고 예정</th><th>상태</th></tr></thead><tbody>
+    ${PARTS.map(p=>{const av=p[2]-p[3], short=av<NEED; return `<tr class="${short?'bad':''}"><td>${p[1]}<br><span class="mono note">${p[0]}</span></td><td class="r num">${fmt(NEED)}</td><td class="r num">${fmt(p[2])}</td><td class="r num">${fmt(p[3])}</td><td class="r num"><b>${fmt(av)}</b></td><td class="num">${p[4]}</td><td>${short?`<span class="badge b-high">${fmt(NEED-av)}개 부족</span>`:'<span class="badge b-ok">충분</span>'}</td></tr>`;}).join('')}
+    </tbody></table></div>
+    <p class="note">고온용 제어칩은 창고에 9,000개가 있지만 기존 주문에 7,500개가 배정되어 있어 쓸 수 있는 것은 1,500개입니다. 부품 6종은 EWP-12-B 옵션 반영 BOM 기준입니다(전체 부품 9종).</p>
+    ${timeline()}</div>`;
+  if(has('evaluate_alt')) h += `<div class="sec"><h3>대안 비교 ${evBtn('alt-003')}</h3>
+    <div class="tw"><table><thead><tr><th>대안</th><th>납기 충족</th><th>추가 비용</th><th>판단</th><th></th></tr></thead><tbody>
+    <tr><td>A. 입고 대기</td><td><span class="m no">✗</span>2027-01-20 이후</td><td>없음</td><td>36일 지연</td><td></td></tr>
+    <tr><td>B. 분할 납품 (1,500 + 500)</td><td><span class="m opt">△</span>500개 지연</td><td>없음</td><td>배상 상한 없는 조항과 충돌</td><td>${evBtn('pol-004')}</td></tr>
+    <tr class="hl"><td><b>C. 대체 칩 500개</b><br><span class="mono note">P-MCU-G1-ALT · 가용 3,000</span></td><td><span class="m ok">✓</span>검증 2주 후 생산</td><td class="num">150,000원<br><span class="note">500 × 300원</span></td><td><span class="badge b-ok">추천</span></td><td>${evBtn('alt-002')}</td></tr>
+    <tr><td>D. 신규 발주</td><td><span class="m no">✗</span>조달 120일</td><td>–</td><td>불가</td><td></td></tr>
+    </tbody></table></div></div>`;
+  return h;
+}
+function sg3(){
+  let h = verdict(3);
+  if(has('draft_quote')){
+    const years = [1,2,3,4,5,6].map(n=>[n, Math.round(37300*Math.pow(0.97,n-1))]);
+    const pct = v => (v/40000*100).toFixed(2)+'%';
+    h += `<div class="sec"><h3>견적서 초안</h3>
+    <div class="quote">
+      <div class="qh"><b>견 적 서</b><span class="mono note">초안 · 2026-10-19 · 유효기간 2026-11-18</span></div>
+      <dl class="kv">
+        <div><dt>수신</dt><dd>한별모터스 구매본부</dd></div>
+        <div><dt>품목</dt><dd class="mono" style="font-size:12.5px">EWP-12-B + OPT-HT + OPT-IP9K</dd></div>
+        <div><dt>단가</dt><dd class="num">37,300원</dd></div>
+        <div><dt>연간 물량</dt><dd class="num">120,000개</dd></div>
+        <div><dt>시작품</dt><dd class="num">2,000개 · 2026-12-15</dd></div>
+        <div><dt>인도 조건</dt><dd>DAP 울산 2공장</dd></div>
+      </dl>
+      <div class="cond"><span class="sec-t">조건부 사항</span>
+        <ul><li>가정값 3건: 유량 22 L/min, 커넥터 표준 4핀, 냉각수 에틸렌글리콜 50%</li>
+        <li>시작품 중 500개에 대체 제어칩 적용 (비용 150,000원 별도)</li>
+        <li>품질 보증 3년 / 100,000 km로 수정 제안 ${evBtn('pol-003')}</li>
+        <li>지연 배상 상한 계약금액 10% 설정 제안 ${evBtn('pol-004')}</li></ul></div>
+    </div></div>
+    <div class="sec"><h3>단가 구성 <span class="sub">목표가 대비</span></h3>
+      <div style="padding-top:20px"><div class="bar" role="img" aria-label="단가 37,300원, 목표가 38,000원">
+        <div class="s1" style="width:${pct(34000)}"></div><div class="s2" style="width:${pct(2400)}"></div><div class="s3" style="width:${pct(900)}"></div>
+        <span class="tgt" style="left:${pct(38000)}"><span class="num">목표 38,000</span></span></div></div>
+      <div class="legend num"><span><i style="background:var(--accent)"></i>EWP-12-B 34,000</span><span><i style="background:color-mix(in srgb,var(--accent) 60%,var(--surface))"></i>OPT-HT 2,400</span><span><i style="background:color-mix(in srgb,var(--accent) 35%,var(--surface))"></i>OPT-IP9K 900</span><span><b>합계 37,300원</b></span></div>
+      <p class="note">부품 원가 21,650원 (모터 9,500 · 고온 칩 5,300 · 임펠러 1,200 · 케이스 4,100 · 강화 실링 950 · 커넥터 600), 원가 대비 마진 42.0% (참고)</p></div>
+    <div class="sec"><h3>연도별 단가 <span class="sub">연 3% 인하</span> ${evBtn('pol-002')}</h3>
+      <div class="tw"><table><thead><tr>${years.map(y=>`<th class="r">${y[0]}년차</th>`).join('')}</tr></thead><tbody><tr>${years.map(y=>`<td class="r num">${fmt(y[1])}</td>`).join('')}</tr></tbody></table></div></div>`;
+  }
+  if(has('validate_quote')) h += `<div class="sec"><h3>견적 검증</h3>
+    <div class="tw"><table><thead><tr><th>항목</th><th>기준</th><th>결과</th></tr></thead><tbody>
+    <tr><td>가격</td><td>단가 ≤ 목표가 38,000원</td><td><span class="badge b-ok">통과</span> <span class="num">37,300원</span></td></tr>
+    <tr><td>연간 인하</td><td>CR ≤ 3% (제11조)</td><td><span class="badge b-ok">통과</span> 3%</td></tr>
+    <tr><td>수치 일치</td><td>모델가 + 옵션가 재계산</td><td><span class="badge b-ok">통과</span> 일치</td></tr>
+    <tr><td>문서 형식</td><td>단가·수량·납기·조건·유효기간</td><td><span class="badge b-ok">통과</span> 누락 없음</td></tr>
+    </tbody></table></div></div>`;
+  return h;
+}
+function sg4(){
+  let h = verdict(4);
+  if(S.waiting?.node==='request_approval') h += `<div class="confirm" role="group" aria-label="견적 승인">
+    <span class="lbl">승인 필요 · 흐름이 멈췄습니다</span>
+    <p>EWP-12-B + 옵션 2개, 단가 37,300원 견적을 승인하시겠습니까?</p>
+    <ul><li>시작품 500개에 대체 제어칩 적용 (검증 2주)</li><li>보증 5년 조건을 수용하려면 품질본부장 승인 필요 ${evBtn('pol-003')}</li><li>지연 배상 상한 10%는 고객과 협의 필요 ${evBtn('pol-004')}</li></ul>
+    <div class="acts"><button class="btn primary" data-act="approve4">승인</button><button class="btn" data-act="rej4">반려</button><button class="btn" data-act="rej4">수정 요청</button></div>
+    ${S.msg.rej4?'<p class="msg">반려·수정 요청은 사유를 받아 해당 SG로 되돌립니다. 데모에서는 승인만 시연합니다.</p>':''}</div>`;
+  if(has('request_approval')) h += `<div class="done-line">${ic('check')} 담당자 승인 완료</div>`;
+  if(has('recheck_supply')) h += `<div class="sec"><h3>재고 재확인 <span class="badge b-ok">변동 없음</span></h3>
+    <div class="tw"><table><thead><tr><th>부품</th><th class="r">SG2 시점 가용</th><th class="r">지금 가용</th></tr></thead><tbody>
+    <tr><td>제어칩 (고온용) <span class="mono note">P-MCU-G1</span></td><td class="r num">1,500</td><td class="r num">1,500</td></tr>
+    <tr><td>제어칩 (대체) <span class="mono note">P-MCU-G1-ALT</span></td><td class="r num">3,000</td><td class="r num">3,000</td></tr></tbody></table></div></div>`;
+  if(has('register_quote')) h += `<div class="sec"><h3>등록 완료</h3>
+    <div class="stamp"><div class="sealmark">등록<br>완료</div><div style="min-width:0">
+    <dl class="kv" style="margin:0"><div><dt>견적 번호</dt><dd class="mono">Q-2026-1019-001</dd></div><div><dt>상태</dt><dd><span class="badge b-ok">등록 완료</span></dd></div>
+    <div><dt>등록 경로</dt><dd>Spring Boot 업무 API</dd></div><div><dt>검토 기록</dt><dd class="mono">rfq_reviews</dd></div></dl></div></div>
+    <p class="note">SG1 이슈 7건 · SG2 대체 칩 500개 · SG3 단가 37,300원 · SG4 승인 및 등록</p></div>`;
+  return h;
+}
+function dataHTML(){
+  return `<div class="verdict pending"><span class="lbl">데이터 구조</span><p>Postgres 업무 데이터 7개 테이블과 VectorDB 사내 문서 청크 22개</p></div>
+  <div class="sec"><h3>Postgres 테이블 <span class="sub">business MCP · 판정은 이 값으로 함</span></h3>
+    <div class="tw"><table><thead><tr><th>테이블</th><th>담는 것</th><th>사용처</th></tr></thead><tbody>
+    <tr><td class="mono">models</td><td>표준 모델 3종의 성능·크기·가격 (고객 요구값과 비교하는 기준값)</td><td>SG1</td></tr>
+    <tr><td class="mono">options</td><td>옵션 2종과 바뀌는 사양·부품 (붙이면 BOM 부품도 바뀜)</td><td>SG1</td></tr>
+    <tr><td class="mono">model_options</td><td>모델별로 붙일 수 있는 옵션</td><td>SG1</td></tr>
+    <tr><td class="mono">parts</td><td>부품 9종의 공급사·원가·조달 기간</td><td>SG2</td></tr>
+    <tr><td class="mono">bom</td><td>모델 1개에 들어가는 부품 목록 (옵션 적용 전 기본 구성)</td><td>SG2</td></tr>
+    <tr><td class="mono">inventory</td><td>부품별 재고·배정·입고 예정 (가용 = on_hand − allocated)</td><td>SG2</td></tr>
+    <tr><td class="mono">rfq_reviews</td><td>SG1 검토 결과 기록 (선정 모델·옵션·적합 유형·이슈)</td><td>SG1 출력</td></tr>
+    </tbody></table></div></div>
+  <div class="sec"><h3>VectorDB 문서 청크 <span class="sub">rag MCP · pgvector · doc_chunks</span></h3>
+    <div class="tw"><table><thead><tr><th>doc_type</th><th>원본 파일</th><th>내용</th><th>청크</th><th>검색하는 노드</th></tr></thead><tbody>
+    <tr><td class="mono">design_std</td><td class="mono">design_standard.md</td><td>설계 표준: 표준 / 파생 사양 / 신규 개발 기준</td><td>dsn-001~007 (7)</td><td>validate_rules, match_spec</td></tr>
+    <tr><td class="mono">catalog</td><td class="mono">product_catalog.md</td><td>모델 3종과 옵션 2종 설명</td><td>cat-001~006 (6)</td><td>match_spec</td></tr>
+    <tr><td class="mono">policy</td><td class="mono">sales_policy.md</td><td>영업·구매 규정 제10~15조 (보증, 지연 배상, 가격 인하 한도)</td><td>pol-001~006 (6)</td><td>check_contract</td></tr>
+    <tr><td class="mono">alt_parts</td><td class="mono">alt_parts_criteria.md</td><td>부품 부족 시 대체품 선정 기준</td><td>alt-001~003 (3)</td><td>SG2 대안 분석</td></tr>
+    </tbody></table></div>
+    <p class="note">VectorDB는 별도 DB 대신 Postgres에 pgvector를 켜서 같은 DB에 둡니다. 판정은 Postgres 값으로 하고, 근거 설명은 VectorDB 문서로 합니다.</p></div>
+  <div class="sec"><h3>연결 키 <span class="sub">SG1이 정해서 넘기고, SG2가 이 두 키로 조회</span></h3>
+    <div class="flow">
+      <div><b>model_id</b>models → model_options → bom → inventory 의 공통 키</div>
+      <div><b>option_code</b>options → model_options 의 공통 키. 붙이면 uses / replaces 부품이 교체됨</div>
+      <div><b>part_id</b>bom · options → parts → inventory 로 이어지는 부품 키</div>
+    </div>
+    <p class="note">데모의 핵심 경로: OPT-HT를 붙이면 bom의 P-MCU-STD가 P-MCU-G1로 바뀌고, 가용 재고 1,500개(9,000 − 7,500)가 시작품 2,000개에 500개 모자랍니다. rfq_reviews와 doc_chunks는 외래 키 없이 독립된 테이블입니다.</p></div>
+  <div class="sec"><h3>데모에서 꼭 검색되어야 하는 청크</h3>
+    <div class="tw"><table><thead><tr><th>chunk_id</th><th>section</th><th>쓰이는 판단</th></tr></thead><tbody>
+    <tr><td class="mono">dsn-002</td><td>2. 유량 판단</td><td>22 L/h는 단위 오기 → HIGH 이슈</td></tr>
+    <tr><td class="mono">dsn-003</td><td>3. 작동 온도</td><td>120℃ 요구 → OPT-HT 적용</td></tr>
+    <tr><td class="mono">dsn-004</td><td>4. 방수 등급</td><td>IP6K9K 요구 → OPT-IP9K 적용</td></tr>
+    <tr><td class="mono">dsn-005</td><td>5. 소음</td><td>C 모델 48dB 탈락</td></tr>
+    <tr><td class="mono">dsn-007</td><td>7. 커넥터와 냉각수</td><td>누락 항목 표준값 가정</td></tr>
+    <tr><td class="mono">pol-003</td><td>제12조 품질 보증 기간</td><td>5년/15만km 한도 초과</td></tr>
+    <tr><td class="mono">pol-004</td><td>제13조 지연 배상</td><td>배상 상한 없음 위반</td></tr>
+    <tr><td class="mono">alt-002</td><td>2. 제어칩 대체</td><td>SG2: P-MCU-G1-ALT 제안</td></tr>
+    </tbody></table></div></div>`;
+}
+
+/* ===================== 렌더 ===================== */
+function render(){
+  const app = document.getElementById('app');
+  const docEl = document.getElementById('doc');
+  const keep = docEl ? docEl.scrollTop : 0;
+  const isData = S.view==='data';
+  const panel = isData ? dataHTML()
+    : S.view==='intro' ? introHTML()
+    : [null,sg1,sg2,sg3,sg4][S.view]();
+  app.innerHTML = `${headHTML()}
+    <div class="ws${isData?' single':''}">
+      ${isData ? '' : docBox()}
+      <section class="panel" aria-live="polite">${panel}</section>
+    </div>
+    <p class="foot">데모 데이터: rfq_dataset 기준 목업 · 회사명·제품명·수치는 모두 가상 · 백엔드 연결 시 노드 이벤트를 <code>window.handleEvent({sg, node, status})</code>로 넘기면 같은 화면이 갱신됩니다 (status: running / done / interrupt).</p>`;
+  const d = document.getElementById('doc'); if(d) d.scrollTop = keep;
+  document.getElementById('rail-ws').setAttribute('aria-pressed', String(!isData));
+  document.getElementById('rail-data').setAttribute('aria-pressed', String(isData));
+  renderSteps();
+  renderLog();
+}
+
+/* ===================== 입력 ===================== */
+let toastT;
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2200); }
+function selectQ(){ const el=document.getElementById('qlist'); const r=document.createRange(); r.selectNodeContents(el); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }
+
+document.addEventListener('click', e=>{
+  const rail = e.target.closest('[data-rail]');
+  if(rail){
+    if(rail.dataset.rail==='data'){ S.view='data'; }
+    else { S.view = S.started ? S.lastSg : 'intro'; }
+    render(); return;
+  }
+  const sgb = e.target.closest('[data-sgstep]'); if(sgb && !sgb.disabled){ S.view=+sgb.dataset.sgstep; render(); return; }
+  const dv = e.target.closest('[data-docview]'); if(dv && !dv.disabled){ S.asm = dv.dataset.docview==='asm'; render(); return; }
+  const ev = e.target.closest('[data-ev]'); if(ev){ S.ev = S.ev===ev.dataset.ev ? null : ev.dataset.ev; S.sel=null; render(); return; }
+  const hl = e.target.closest('[data-risk]'); if(hl){
+    const id = hl.dataset.risk;
+    if(S.sel===id){ S.sel=null; S.ev=null; } else { S.sel=id; S.ev=HL[id].ev; }
+    render(); return;
+  }
+  if(e.target.closest('[data-start]')){
+    if(S.started) return;
+    log('RFQ HB-EV7-EWP-001 검토 시작'); S.view=1; runNext(); render(); return;
+  }
+  if(e.target.closest('[data-reset]')){ clearTimeout(timer); S=fresh(); render(); return; }
+  const a = e.target.closest('[data-act]'); if(!a) return;
+  const act = a.dataset.act;
+  if(act==='approve1'||act==='approve4'){ log(act==='approve1' ? '담당자: 22 L/min 가정 승인' : '담당자: 견적 승인','ok'); toast(act==='approve1'?'22 L/min으로 검토를 이어갑니다':'견적을 승인했습니다'); resume(); return; }
+  if(act==='alt1'){ S.msg.alt1=true; render(); return; }
+  if(act==='rej4'){ S.msg.rej4=true; render(); return; }
+  if(act==='copyq'){
+    const text=[...document.querySelectorAll('#qlist li')].map((li,i)=>`${i+1}. ${li.textContent}`).join('\n');
+    const done=()=>{ S.msg.copied=true; render(); };
+    try{ navigator.clipboard.writeText(text).then(done).catch(()=>{ selectQ(); }); }catch(_){ selectQ(); }
+  }
+});
+document.addEventListener('keydown', e=>{
+  if((e.key==='Enter'||e.key===' ') && e.target.matches('[data-risk]')){ e.preventDefault(); e.target.click(); }
+});
+
+render();
+</script>
+</body>
+</html>
