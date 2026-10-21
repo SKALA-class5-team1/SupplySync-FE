@@ -14,6 +14,9 @@ export type TaskStatus =
   | 'QUEUED' | 'RUNNING' | 'NEEDS_CLARIFICATION' | 'WAITING_APPROVAL' | 'REVALIDATING'
   | 'REGISTERING' | 'ON_HOLD' | 'DONE' | 'FAILED'
 
+// 작업 종료 결과 (DONE 이벤트의 data.outcome). 반려(REJECTED)도 DONE으로 끝난다.
+export type TaskOutcome = 'REGISTERED' | 'REJECTED'
+
 export type QuoteStatus = 'DRAFT' | 'APPROVED' | 'REJECTED' | 'REGISTERED'
 
 export type RfqStatus = 'RECEIVED' | 'IN_REVIEW' | 'QUOTED' | string
