@@ -9,6 +9,12 @@ const TASK_CHIP: Record<string, string> = {
   REVALIDATING: 'quote', REGISTERING: 'quote', ON_HOLD: 'submitted', DONE: 'accepted', FAILED: 'rejected',
 }
 
+// 작업 종료 결과 문구
+export const OUTCOME_LABEL: Record<string, string> = {
+  REGISTERED: '견적이 등록되었습니다.',
+  REJECTED: '담당자가 견적을 반려하여 종료되었습니다.',
+}
+
 export const QUOTE_LABEL: Record<string, string> = {
   DRAFT: '검토 대기', APPROVED: '승인됨', REJECTED: '반려', REGISTERED: '등록됨',
 }

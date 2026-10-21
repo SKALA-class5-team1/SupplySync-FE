@@ -186,11 +186,11 @@ export async function mockTransport(method: string, path: string, body: unknown,
     if (me.user_type !== 'MANAGER') return err(403, 'FORBIDDEN', '이 화면은 담당자만 사용할 수 있습니다.')
     if (sub === '/confirmation' && method === 'POST') return ok({}, 200)
     if (sub === '/approval' && method === 'POST') {
-      const b = body as { quote_id: string; decision: 'APPROVED' | 'REJECTED'; reason?: string }
+      const b = body as { quote_id: string; decision: 'APPROVED' | 'REJECTED' | 'REVISE'; reason?: string }
       const quote = analyses[rfq.rfq_id]?.quotes.find((x) => x.quote_id === b.quote_id)
       if (!quote) return err(404, 'NOT_FOUND', '견적을 찾을 수 없습니다.')
       if (quote.status !== 'DRAFT') return err(409, 'CONFLICT_STATE', '이미 처리되었습니다.')
-      if (b.decision === 'REJECTED' && !b.reason?.trim()) return err(400, 'VALIDATION_ERROR', '반려 사유를 입력해 주세요.')
+      if (b.decision !== 'APPROVED' && !b.reason?.trim()) return err(400, 'VALIDATION_ERROR', '반려 사유를 입력해 주세요.')
       quote.status = b.decision === 'APPROVED' ? 'APPROVED' : 'REJECTED'
       return ok({}, 202)
     }

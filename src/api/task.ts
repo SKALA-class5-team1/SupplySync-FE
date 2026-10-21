@@ -5,7 +5,7 @@ import type { StepName, TaskStatus } from './types'
 
 export const TASK_EVENTS = [
   'STEP_START', 'STEP_END', 'TOOL_START', 'TOOL_END', 'TOKEN',
-  'CLARIFICATION_REQUIRED', 'APPROVAL_REQUIRED', 'DONE', 'FAILED',
+  'CLARIFICATION_REQUIRED', 'APPROVAL_REQUIRED', 'RUN_ON_HOLD', 'RUN_END', 'RUN_FAILED', 'DONE', 'FAILED',
 ] as const
 export type TaskEventName = (typeof TASK_EVENTS)[number]
 
@@ -19,10 +19,12 @@ export interface TaskState {
   status: TaskStatus
   current_step?: StepName | null
   failure_reason?: string | null
+  outcome?: string | null // 종료 결과 REGISTERED | REJECTED. 진행 중에는 null
   [key: string]: unknown
 }
 
-const TERMINAL: TaskEventName[] = ['DONE', 'FAILED']
+// RUN_ON_HOLD(업무상 보류)는 담당자 조치 전까지 더 이상 이벤트가 오지 않으므로 종료로 본다
+const TERMINAL: TaskEventName[] = ['DONE', 'FAILED', 'RUN_ON_HOLD', 'RUN_END', 'RUN_FAILED']
 
 export function getTask(taskId: string): Promise<TaskState> {
   return request<TaskState>('GET', `/api/ai/tasks/${encodeURIComponent(taskId)}`)

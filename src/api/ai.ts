@@ -5,12 +5,12 @@ export function submitConfirmation(taskId: string, assumptions: { field: string;
   return request<void>('POST', `/api/ai/tasks/${encodeURIComponent(taskId)}/confirmation`, { assumptions })
 }
 
-export type ApprovalDecision = 'APPROVED' | 'REJECTED'
+export type ApprovalDecision = 'APPROVED' | 'REJECTED' | 'REVISE'
 
 export interface ApprovalRequest {
   quote_id: string
   decision: ApprovalDecision
-  reason?: string // 반려 시 필수
+  reason?: string // 반려·수정 요청(REVISE) 시 필수
   return_to_step?: string
 }
 

@@ -23,8 +23,19 @@ interface RawResponse {
   json: unknown
 }
 
+// 오류 응답: { code, message, details[], timestamp }
 function isErrorBody(v: unknown): v is ApiErrorBody {
   return typeof v === 'object' && v !== null && 'code' in v && 'message' in v
+}
+
+// 로그인 후 보던 화면으로 돌아오도록 현재 주소를 next로 넘긴다
+function loginUrl(): string {
+  const here = location.pathname + location.search
+  return here === '/' || here.startsWith('/login') ? '/login' : `/login?next=${encodeURIComponent(here)}`
+}
+
+export function authHeaders(): Record<string, string> {
+  return session.token ? { Authorization: `Bearer ${session.token}` } : {}
 }
 
 function safeJson(text: string): unknown {
@@ -35,14 +46,14 @@ function safeJson(text: string): unknown {
   }
 }
 
-// 실제 네트워크 또는 개발용 목 데이터(VITE_MOCK=true)로 보낸다
+// 실제 네트워크, 또는 개발용 목 데이터(VITE_MOCK=true)로 보낸다
 async function transport(method: string, path: string, body?: unknown): Promise<RawResponse> {
   if (mockEnabled()) return mockTransport(method, path, body, session.user)
   const isForm = body instanceof FormData
   const res = await fetch(path, {
     method,
     headers: {
-      ...(session.token ? { Authorization: `Bearer ${session.token}` } : {}),
+      ...authHeaders(),
       ...(body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : {}),
     },
     body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
@@ -52,14 +63,16 @@ async function transport(method: string, path: string, body?: unknown): Promise<
 }
 
 export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  // 만료된 토큰은 요청 전에 걸러서 로그인 화면으로 보낸다
   if (expireIfNeeded() && path !== '/api/auth/login') {
-    location.assign('/login')
+    location.assign(loginUrl())
     throw new ApiError(401, { code: 'UNAUTHORIZED', message: '로그인이 만료되었습니다.', details: [], timestamp: new Date().toISOString() })
   }
   const { status, json } = await transport(method, path, body)
   if (status === 401 && path !== '/api/auth/login') {
+    // 토큰이 잘못되었거나 만료되었다. 로그인 상태를 비우고 로그인 화면으로 보낸다.
     saveSession(null, null)
-    if (location.pathname !== '/login') location.assign('/login')
+    if (location.pathname !== '/login') location.assign(loginUrl())
   }
   if (status < 200 || status >= 300) throw new ApiError(status, isErrorBody(json) ? json : null)
   return json as T

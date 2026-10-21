@@ -4,17 +4,19 @@ import { getTask, openTaskStream, type TaskEvent, type TaskState } from '../api/
 import { getRfq } from '../api/rfq'
 import { ApiError } from '../api/client'
 import { isManager } from '../session'
-import { errorMessage, label, STEP_LABEL, STEP_ORDER, TASK_LABEL, taskChip } from '../labels'
+import { errorMessage, label, OUTCOME_LABEL, STEP_LABEL, STEP_ORDER, TASK_LABEL, taskChip } from '../labels'
 import StatusChip from '../components/StatusChip.vue'
 
 const props = defineProps<{ taskId: string; rfq?: string }>()
 
 const MAX_RECONNECT = 3
 const TERMINAL_STATUS = ['DONE', 'FAILED']
+// 업무상 종료 이벤트: 보류·실패·실행 종료는 담당자 조치 전까지 더 이벤트가 오지 않는다
+const TERMINAL_EVENTS = ['DONE', 'FAILED', 'RUN_ON_HOLD', 'RUN_END', 'RUN_FAILED']
 const EVENT_LABEL: Record<string, string> = {
   STEP_START: '단계 시작', STEP_END: '단계 완료', TOOL_START: '도구 호출', TOOL_END: '도구 응답',
   TOKEN: '문구 작성', CLARIFICATION_REQUIRED: '요구 확인 필요', APPROVAL_REQUIRED: '승인 요청',
-  DONE: '완료', FAILED: '실패',
+  DONE: '완료', FAILED: '실패', RUN_ON_HOLD: '보류', RUN_END: '실행 종료', RUN_FAILED: '실행 실패',
 }
 
 const events = ref<{ at: string; name: string; text: string }[]>([])
@@ -22,6 +24,7 @@ const task = ref<TaskState | null>(null)
 const activeStep = ref('')
 const doneSteps = ref<string[]>([])
 const finished = ref(false)
+const outcome = ref<string | null>(null)
 const reconnects = ref(0)
 const notice = ref('')
 const rfqNumber = ref('')
@@ -55,7 +58,11 @@ function onEvent(e: TaskEvent) {
     if (s && !doneSteps.value.includes(s)) doneSteps.value.push(s)
     if (activeStep.value === s) activeStep.value = ''
   }
-  if (e.event === 'DONE' || e.event === 'FAILED') finished.value = true
+  if (TERMINAL_EVENTS.includes(e.event)) finished.value = true
+  // 반려도 DONE으로 끝난다. 결과는 DONE의 outcome으로 구분한다
+  if (e.event === 'DONE' && e.data && typeof e.data === 'object' && 'outcome' in e.data) {
+    outcome.value = String((e.data as { outcome: string }).outcome)
+  }
   events.value.push({ at: new Date().toTimeString().slice(0, 8), name: e.event, text: describe(e) })
   nextTick(() => logEl.value?.scrollTo({ top: logEl.value.scrollHeight }))
 }
@@ -79,6 +86,7 @@ async function recover() {
   try {
     task.value = await getTask(props.taskId)
     if (task.value.current_step) activeStep.value = task.value.current_step
+    outcome.value = task.value.outcome ?? outcome.value
     if (TERMINAL_STATUS.includes(task.value.status)) {
       finished.value = true
       return
@@ -99,6 +107,7 @@ onMounted(async () => {
   try {
     task.value = await getTask(props.taskId)
     if (task.value.current_step) activeStep.value = task.value.current_step
+    outcome.value = task.value.outcome ?? null
     if (TERMINAL_STATUS.includes(task.value.status)) finished.value = true
   } catch (err) {
     notice.value = err instanceof ApiError ? errorMessage(err.code, '작업을 찾을 수 없습니다.') : '작업을 불러오지 못했습니다.'
@@ -147,6 +156,10 @@ onBeforeUnmount(() => stop?.())
         </div>
         <RouterLink v-if="isManager() && rfq" class="btn primary sm" :to="`/rfqs/${rfq}`">검토 화면으로</RouterLink>
       </div>
+    </div>
+
+    <div v-if="finished && outcome && OUTCOME_LABEL[outcome]" class="notice" style="margin-bottom:16px">
+      <b>{{ OUTCOME_LABEL[outcome] }}</b>
     </div>
 
     <section class="card" style="margin-bottom:16px">

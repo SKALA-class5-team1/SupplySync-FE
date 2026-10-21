@@ -11,7 +11,7 @@ const props = defineProps<{ quotes: QuoteSummary[]; manager: boolean; taskId: st
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
 // 승인·반려는 두 번 눌러 확인한다 (더블 클릭 방지)
-const pending = ref<{ id: string; decision: 'APPROVED' | 'REJECTED' } | null>(null)
+const pending = ref<{ id: string; decision: 'APPROVED' | 'REJECTED' | 'REVISE' } | null>(null)
 const reason = ref('')
 const busy = ref('')
 
@@ -20,8 +20,8 @@ const canAct = computed(() => props.manager && !!props.taskId)
 async function confirmDecision(q: QuoteSummary) {
   if (!pending.value) return
   const decision = pending.value.decision
-  if (decision === 'REJECTED' && !reason.value.trim()) {
-    notify('반려하려면 사유를 입력해 주세요.', 'err')
+  if (decision !== 'APPROVED' && !reason.value.trim()) {
+    notify('반려나 수정 요청은 사유를 입력해 주세요.', 'err')
     return
   }
   busy.value = q.quote_id
@@ -29,9 +29,9 @@ async function confirmDecision(q: QuoteSummary) {
     await submitApproval(props.taskId, {
       quote_id: q.quote_id,
       decision,
-      ...(decision === 'REJECTED' ? { reason: reason.value.trim() } : {}),
+      ...(decision !== 'APPROVED' ? { reason: reason.value.trim() } : {}),
     })
-    notify(decision === 'APPROVED' ? '견적을 승인했습니다.' : '견적을 반려했습니다.', 'ok')
+    notify(decision === 'APPROVED' ? '견적을 승인했습니다.' : decision === 'REVISE' ? '수정을 요청했습니다.' : '견적을 반려했습니다.', 'ok')
     pending.value = null
     emit('changed')
   } catch (err) {
@@ -103,12 +103,12 @@ async function confirmDecision(q: QuoteSummary) {
       <!-- 담당자 승인 · 반려 (검토 대기 견적만) -->
       <div v-if="canAct && q.status === 'DRAFT'" class="actions" style="justify-content:flex-end">
         <template v-if="pending && pending.id === q.quote_id">
-          <div v-if="pending.decision === 'REJECTED'" class="field" style="width:100%">
-            <label class="small muted" :for="`reason-${q.quote_id}`">반려 사유 (필수)</label>
+          <div v-if="pending.decision !== 'APPROVED'" class="field" style="width:100%">
+            <label class="small muted" :for="`reason-${q.quote_id}`">{{ pending.decision === 'REVISE' ? '수정 요청 내용 (필수)' : '반려 사유 (필수)' }}</label>
             <textarea :id="`reason-${q.quote_id}`" v-model="reason" class="input" placeholder="예: 대체 칩 검증 일정이 맞지 않습니다"></textarea>
           </div>
           <p class="small" style="width:100%">
-            {{ pending.decision === 'APPROVED' ? '이 견적을 승인할까요? 승인 후에는 고객에게 발송됩니다.' : '이 견적을 반려할까요?' }}
+            {{ pending.decision === 'APPROVED' ? '이 견적을 승인할까요? 승인 후에는 고객에게 발송됩니다.' : pending.decision === 'REVISE' ? '담당자 수정 요청을 보낼까요? 요청 내용은 검토 단계로 돌아갑니다.' : '이 견적을 반려할까요?' }}
           </p>
           <button class="btn" :disabled="!!busy" @click="pending = null">취소</button>
           <button
@@ -116,9 +116,10 @@ async function confirmDecision(q: QuoteSummary) {
             :class="pending.decision === 'APPROVED' ? 'primary' : 'danger'"
             :disabled="!!busy"
             @click="confirmDecision(q)"
-          >{{ busy ? '처리 중…' : pending.decision === 'APPROVED' ? '승인 확정' : '반려 확정' }}</button>
+          >{{ busy ? '처리 중…' : pending.decision === 'APPROVED' ? '승인 확정' : pending.decision === 'REVISE' ? '수정 요청 확정' : '반려 확정' }}</button>
         </template>
         <template v-else>
+          <button class="btn" :disabled="!!busy" @click="pending = { id: q.quote_id, decision: 'REVISE' }; reason = ''">수정 요청</button>
           <button class="btn danger" :disabled="!!busy" @click="pending = { id: q.quote_id, decision: 'REJECTED' }; reason = ''">반려</button>
           <button class="btn primary" :disabled="!!busy" @click="pending = { id: q.quote_id, decision: 'APPROVED' }; reason = ''">승인</button>
         </template>
