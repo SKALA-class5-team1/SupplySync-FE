@@ -5,9 +5,9 @@ import { ApiError } from '../api/client'
 import { errorMessage, label, QUOTE_LABEL, quoteChip, won } from '../labels'
 import { notify } from '../toast'
 import StatusChip from './StatusChip.vue'
-import type { QuoteSummary } from '../api/types'
+import type { QuoteSummary, TaskStatus } from '../api/types'
 
-const props = defineProps<{ quotes: QuoteSummary[]; manager: boolean; taskId: string }>()
+const props = defineProps<{ quotes: QuoteSummary[]; manager: boolean; taskId: string; taskStatus?: TaskStatus }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
 // 승인·반려는 두 번 눌러 확인한다 (더블 클릭 방지)
@@ -15,10 +15,10 @@ const pending = ref<{ id: string; decision: 'APPROVED' | 'REJECTED' | 'REVISE' }
 const reason = ref('')
 const busy = ref('')
 
-const canAct = computed(() => props.manager && !!props.taskId)
+const canAct = computed(() => props.manager && !!props.taskId && props.taskStatus === 'WAITING_APPROVAL')
 
 async function confirmDecision(q: QuoteSummary) {
-  if (!pending.value) return
+  if (busy.value || !pending.value || pending.value.id !== q.quote_id || !canAct.value || q.status !== 'DRAFT') return
   const decision = pending.value.decision
   if (decision !== 'APPROVED' && !reason.value.trim()) {
     notify('반려나 수정 요청은 사유를 입력해 주세요.', 'err')
@@ -118,7 +118,7 @@ async function confirmDecision(q: QuoteSummary) {
             <textarea :id="`reason-${q.quote_id}`" v-model="reason" class="input" placeholder="예: 대체 칩 검증 일정이 맞지 않습니다"></textarea>
           </div>
           <p class="small" style="width:100%">
-            {{ pending.decision === 'APPROVED' ? '이 견적을 승인할까요? 승인 후에는 고객에게 발송됩니다.' : pending.decision === 'REVISE' ? '담당자 수정 요청을 보낼까요? 요청 내용은 검토 단계로 돌아갑니다.' : '이 견적을 반려할까요?' }}
+            {{ pending.decision === 'APPROVED' ? '이 견적을 승인할까요? 승인 후 재고와 가격을 다시 검증하고 견적을 등록합니다.' : pending.decision === 'REVISE' ? '담당자 수정 요청을 보낼까요? 요청 내용은 검토 단계로 돌아갑니다.' : '이 견적을 반려할까요?' }}
           </p>
           <button class="btn" :disabled="!!busy" @click="pending = null">취소</button>
           <button
@@ -131,15 +131,17 @@ async function confirmDecision(q: QuoteSummary) {
         <template v-else>
           <button class="btn" :disabled="!!busy" @click="pending = { id: q.quote_id, decision: 'REVISE' }; reason = ''">수정 요청</button>
           <button class="btn danger" :disabled="!!busy" @click="pending = { id: q.quote_id, decision: 'REJECTED' }; reason = ''">반려</button>
-          <button class="btn primary" :disabled="!!busy" @click="pending = { id: q.quote_id, decision: 'APPROVED' }; reason = ''">승인</button>
+          <button class="btn primary" :disabled="!!busy" @click="pending = { id: q.quote_id, decision: 'APPROVED' }; reason = ''">견적 승인</button>
         </template>
       </div>
       <p v-else-if="manager && q.status === 'DRAFT' && !taskId" class="small muted">작업 정보가 없어 승인할 수 없습니다.</p>
+      <p v-else-if="manager && q.status === 'DRAFT'" class="small muted">아직 견적 승인 대기 상태가 아닙니다. 요구 확인과 최종 검토가 완료되면 승인할 수 있습니다.</p>
     </article>
   </div>
 </template>
 
 <style scoped>
+.quotes-list { scroll-margin-top: 100px; }
 .price { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .price b { font-size: 28px; font-weight: 800; color: var(--accent); }
 .actions textarea { min-height: 70px; }

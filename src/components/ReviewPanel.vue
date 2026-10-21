@@ -1,42 +1,69 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { submitConfirmation } from '../api/ai'
 import { ApiError } from '../api/client'
 import { errorMessage, SEVERITY_LABEL, severityChip, won } from '../labels'
 import { notify } from '../toast'
-import type { Review } from '../api/types'
+import type { Review, TaskStatus } from '../api/types'
 
 const ALT_LABEL: Record<string, string> = {
   WAIT_INCOMING: '입고 대기', PARTIAL_DELIVERY: '분할 납품', SUBSTITUTE_PART: '대체 부품', NEW_ORDER: '신규 발주',
 }
 
-const props = defineProps<{ review: Review; taskId: string }>()
+const props = defineProps<{ review: Review; taskId: string; taskStatus?: TaskStatus }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
 const assumptions = ref<{ field: string; value: string }[]>([])
 const saving = ref(false)
+const submitted = ref(false)
+const confirmationError = ref('')
 const copied = ref(false)
+const needsClarification = computed(() => props.taskStatus === 'NEEDS_CLARIFICATION')
 
 watch(
-  () => props.review,
-  (r) => {
-    assumptions.value = (r?.assumptions ?? []).map((a) => ({ ...a }))
+  () => [props.review, props.taskId] as const,
+  ([r]) => {
+    // SG1이 이슈만 저장한 경우에도 담당자가 확정값을 직접 입력할 수 있어야 한다.
+    // suggestion은 설명 문장이므로 확정값으로 자동 제출하지 않는다.
+    const fields = [...new Set((r.issues ?? []).map((i) => i.field?.trim()).filter((f): f is string => !!f))]
+    assumptions.value = r.assumptions?.length
+      ? r.assumptions.map(({ field, value }) => ({ field, value }))
+      : fields.length ? fields.map((field) => ({ field, value: '' })) : [{ field: '', value: '' }]
+    confirmationError.value = ''
+    submitted.value = false
   },
   { immediate: true },
 )
 
 async function saveAssumptions() {
-  if (!props.taskId) {
-    notify('작업 정보가 없어 가정을 제출할 수 없습니다.', 'err')
+  if (saving.value || submitted.value) return
+  confirmationError.value = ''
+  if (!props.taskId || !needsClarification.value) {
+    confirmationError.value = '요구 확인 대기 상태에서만 제출할 수 있습니다. 최신 상태를 확인해 주세요.'
+    return
+  }
+  const values = assumptions.value.map(({ field, value }) => ({ field: field.trim(), value: value.trim() }))
+  if (!values.length || values.some((a) => !a.field || !a.value)) {
+    confirmationError.value = '확정할 항목과 값을 입력해 주세요. 제출하지 않을 항목은 제외할 수 있습니다.'
+    return
+  }
+  if (new Set(values.map((a) => a.field)).size !== values.length) {
+    confirmationError.value = '같은 항목이 중복되어 있습니다. 항목별로 하나의 확정값을 입력해 주세요.'
     return
   }
   saving.value = true
   try {
-    await submitConfirmation(props.taskId, assumptions.value)
-    notify('요구 확인을 제출했습니다.', 'ok')
+    await submitConfirmation(props.taskId, values)
+    submitted.value = true
+    notify('요구 확인을 제출하고 분석 재개를 요청했습니다.', 'ok')
     emit('changed')
   } catch (err) {
-    notify(err instanceof ApiError ? errorMessage(err.code, '제출하지 못했습니다.') : '제출하지 못했습니다.', 'err')
+    if (err instanceof ApiError && err.status === 409) {
+      notify('작업 상태가 변경되었습니다. 최신 상태를 확인합니다.', 'err')
+      emit('changed')
+    } else {
+      confirmationError.value = err instanceof ApiError ? errorMessage(err.code, '제출하지 못했습니다.') : '제출하지 못했습니다.'
+    }
   } finally {
     saving.value = false
   }
@@ -56,6 +83,41 @@ async function copyQuestions() {
 
 <template>
   <div class="stack">
+    <form v-if="needsClarification" class="confirmation stack" @submit.prevent="saveAssumptions">
+      <div class="spread">
+        <h2>담당자 요구 확인</h2>
+        <button type="submit" class="btn primary" :disabled="saving || submitted || !taskId">{{ saving ? '제출 중…' : submitted ? '재개 요청 완료' : '확인 완료 · 분석 재개' }}</button>
+      </div>
+      <p class="small muted">아래 이슈를 검토하고 확정값을 입력해 주세요. 확인을 제출하면 분석이 재개되고, 견적이 작성된 뒤 최종 승인할 수 있습니다.</p>
+      <fieldset :disabled="saving || submitted" class="stack confirmation-fields">
+        <div v-for="(a, idx) in assumptions" :key="idx" class="confirmation-row stack">
+          <div class="spread">
+            <label class="small" :for="`as-field-${idx}`">확인 항목 {{ idx + 1 }}</label>
+            <button type="button" class="btn sm" :aria-label="`${a.field || '확인 항목 ' + (idx + 1)} 제외`" @click="assumptions.splice(idx, 1)">제외</button>
+          </div>
+          <input :id="`as-field-${idx}`" v-model="a.field" class="input" placeholder="예: spec.flow" required />
+          <p v-if="review.issues?.find((i) => i.field === a.field)?.suggestion" class="small muted">제안: {{ review.issues.find((i) => i.field === a.field)?.suggestion }}</p>
+          <div class="field">
+            <label :for="`as-${idx}`">확정값</label>
+            <input :id="`as-${idx}`" v-model="a.value" class="input" placeholder="담당자가 확인한 값을 입력하세요" required />
+          </div>
+        </div>
+        <div class="btns">
+          <button type="button" class="btn sm" @click="assumptions.push({ field: '', value: '' })">확인 항목 추가</button>
+          <span class="small muted">이번에 확정하지 않을 항목은 제외할 수 있습니다.</span>
+        </div>
+      </fieldset>
+      <p v-if="confirmationError" class="err" role="alert">{{ confirmationError }}</p>
+    </form>
+    <section v-else-if="review.assumptions?.length">
+      <div class="card-title"><h2>가정값</h2></div>
+      <dl class="assumption-values small">
+        <template v-for="(a, idx) in review.assumptions" :key="idx">
+          <dt>{{ a.field }}</dt><dd>{{ a.value }}</dd>
+        </template>
+      </dl>
+    </section>
+
     <section>
       <div class="card-title"><h2>검토 항목</h2><span class="sub">{{ review.issues?.length ?? 0 }}건</span></div>
       <p v-if="!review.issues?.length" class="muted small">확인할 항목이 없습니다.</p>
@@ -75,19 +137,6 @@ async function copyQuestions() {
           </div>
         </li>
       </ul>
-    </section>
-
-    <section v-if="assumptions.length">
-      <div class="card-title"><h2>요구 확인</h2><span class="sub">고객 가정을 확인하고 제출합니다</span></div>
-      <div class="stack" style="gap:10px">
-        <div v-for="(a, idx) in assumptions" :key="idx" class="field">
-          <label :for="`as-${idx}`">{{ a.field }}</label>
-          <input :id="`as-${idx}`" v-model="a.value" class="input" />
-        </div>
-      </div>
-      <div class="btns" style="justify-content:flex-end;margin-top:12px">
-        <button class="btn primary" :disabled="saving" @click="saveAssumptions">{{ saving ? '제출 중…' : '요구 확인 제출' }}</button>
-      </div>
     </section>
 
     <section v-if="review.shortages?.length">
@@ -162,6 +211,12 @@ async function copyQuestions() {
 </template>
 
 <style scoped>
+.confirmation { border: 1px solid var(--accent); background: var(--paper); border-radius: 10px; padding: 14px; }
+.confirmation h2, .confirmation p { margin: 0; }
+.confirmation-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.confirmation-row { gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.assumption-values { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; overflow-wrap: anywhere; }
+.assumption-values dd { margin: 0; }
 .issues { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .issues li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 10px; }
 .issue-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
