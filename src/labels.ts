@@ -11,6 +11,12 @@ export const TASK_LABEL: Record<string, string> = {
   FAILED: '실패',
 }
 
+// 작업 종료 결과 문구
+export const OUTCOME_LABEL: Record<string, string> = {
+  REGISTERED: '견적이 등록되었습니다.',
+  REJECTED: '담당자가 견적을 반려하여 종료되었습니다.',
+}
+
 export const QUOTE_LABEL: Record<string, string> = {
   DRAFT: '초안',
   APPROVED: '승인됨',
